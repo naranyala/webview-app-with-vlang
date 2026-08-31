@@ -1,0 +1,43 @@
+# V build artifacts
+/webview-app
+/dist/
+/.vmodules/
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+*.tmp.c
+*.tmp.h
+
+# Node, SvelteKit, and Vite artifacts
+**/node_modules/
+**/.svelte-kit/
+**/build/
+**/.output/
+**/.vercel/
+**/.netlify/
+**/.wrangler/
+**/coverage/
+**/*.tsbuildinfo
+**/vite.config.js.timestamp-*
+**/vite.config.ts.timestamp-*
+
+# Package-manager and tool logs
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+bun-debug.log*
+*.log
+
+# Local environment files
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.test
+
+# Operating-system files
+.DS_Store
+Thumbs.db
+Desktop.ini
