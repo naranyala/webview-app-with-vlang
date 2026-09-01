@@ -1,5 +1,6 @@
 # V build artifacts
 /webview-app
+/build
 /dist/
 /.vmodules/
 *.o

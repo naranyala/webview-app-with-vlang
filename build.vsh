@@ -34,6 +34,26 @@ fn run_app(dev bool) ! {
 	}
 }
 
+fn test_all() ! {
+	println('Running frontend tests...')
+	frontend := os.execute('npm test --prefix ${ui_dir}')
+	if frontend.exit_code != 0 {
+		eprintln('Frontend tests failed:\n${frontend.output}')
+		exit(1)
+	}
+	print(frontend.output)
+
+	println('Running backend tests...')
+	for test_file in ['bridge_test.v', 'plugins_test.v', 'server_test.v'] {
+		backend := os.execute('v test ${test_file}')
+		if backend.exit_code != 0 {
+			eprintln('Backend tests failed in ${test_file}:\n${backend.output}')
+			exit(1)
+		}
+		print(backend.output)
+	}
+}
+
 mut cmd := cli.Command{
 	name:          'build.vsh'
 	description:   'Build script for webview app'
@@ -66,6 +86,13 @@ mut cmd := cli.Command{
 			description: 'Run the compiled application'
 			execute:     fn (_ cli.Command) ! {
 				run_app(false)!
+			}
+		},
+		cli.Command{
+			name:        'test'
+			description: 'Run frontend and backend tests'
+			execute:     fn (_ cli.Command) ! {
+				test_all()!
 			}
 		},
 	]
