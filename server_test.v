@@ -27,8 +27,36 @@ fn test_static_handler_rejects_malformed_url() {
 	assert response.body == 'Bad Request'
 }
 
+fn test_static_handler_rejects_non_get_method() {
+	mut handler := StaticHttpHandler{}
+	response := handler.handle(http.Request{method: .post, url: '/'})
+
+	assert response.status_code == 405
+	assert response.body == 'Method Not Allowed'
+}
+
+fn test_static_handler_returns_not_found_for_missing_file() {
+	mut handler := StaticHttpHandler{}
+	response := handler.handle(http.Request{url: '/missing-file-xyz.html'})
+
+	assert response.status_code == 404
+	assert response.body == 'Not Found'
+}
+
+fn test_static_handler_strips_query_string() {
+	if !os.exists(frontend_build_path) {
+		return
+	}
+
+	mut handler := StaticHttpHandler{}
+	response := handler.handle(http.Request{url: '/?v=1'})
+
+	assert response.status_code == 200
+	assert response.body.contains('<!doctype html>')
+}
+
 fn test_static_handler_serves_built_index() {
-	if !os.exists(ui_build_path) {
+	if !os.exists(frontend_build_path) {
 		return
 	}
 

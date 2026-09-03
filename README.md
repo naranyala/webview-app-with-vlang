@@ -1,6 +1,6 @@
-# Webview App - Svelte + V
+# Webview App - Preact + V
 
-Desktop application using [ttytm/webview](https://github.com/ttytm/webview) with a Vite + Svelte frontend and V backend.
+Desktop application using [ttytm/webview](https://github.com/ttytm/webview) with a Preact + esbuild frontend and V backend.
 
 ## Prerequisites
 
@@ -18,7 +18,7 @@ v ~/.vmodules/ttytm/webview/build.vsh
 ## Quick Start
 
 ```sh
-# Build everything (UI + app)
+# Build everything (frontend + app)
 v run build.vsh
 
 # Run the app
@@ -27,11 +27,11 @@ v run build.vsh
 
 ## Development Mode
 
-Run the Svelte dev server and V app separately:
+Run the Preact dev server and V app separately:
 
 ```sh
-# Terminal 1: Start Svelte dev server
-cd ui && npm run dev
+# Terminal 1: Start Preact dev server
+cd frontend-preact && npm run dev
 
 # Terminal 2: Run V app in dev mode
 v -d dev run .
@@ -45,8 +45,8 @@ Element`. Frontend console messages are also printed to the V terminal.
 
 | Command | Description |
 |---------|-------------|
-| `v run build.vsh` | Build UI + app |
-| `v run build.vsh ui` | Build only Svelte UI |
+| `v run build.vsh` | Build frontend + app |
+| `v run build.vsh ui` | Build frontend only |
 | `v run build.vsh run` | Run compiled app |
 | `v run build.vsh dev` | Run in dev mode |
 | `v run build.vsh test` | Run frontend and backend tests |
@@ -59,26 +59,22 @@ Element`. Frontend console messages are also printed to the V terminal.
 ├── main.v              # V backend entry point
 ├── plugins.v           # Backend plugin registry
 ├── bridge.v            # Core WebView bridge plugin
-├── server.v            # Local static UI server
+├── server.v            # Local static frontend server
 ├── build.vsh           # Build automation script
 ├── v.mod               # V module definition
-└── ui/                 # Vite + Svelte frontend
-    ├── src/
-    │   ├── App.svelte
-    │   ├── main.ts
-    │   ├── bridge.d.ts
-    │   ├── lib/
-    │   └── plugins/
-    ├── index.html
-    ├── public/
-    ├── package.json
-    └── vite.config.ts
+├── frontend-preact/    # Canonical Preact + esbuild frontend
+│   ├── src/main.jsx
+│   ├── public/index.html
+│   ├── build.js
+│   └── package.json
+└── ui/                 # Legacy Svelte frontend
 ```
 
 ## V ↔ JavaScript Bridge
 
-V functions are bound to the webview and callable from JavaScript. They return a
-JSON response with a consistent `{ ok, data, error }` shape:
+V functions are bound to the webview and callable from JavaScript. The bridge is
+available to the frontend for future native features. Methods return a JSON
+response with a consistent `{ ok, data, error }` shape:
 
 ```v
 // V side
@@ -89,7 +85,7 @@ fn greet_from_v(e &webview.Event) string {
 ```
 
 ```javascript
-// JavaScript side (Svelte)
-const raw = await window.greet_from_v('Hello from Svelte!');
+// JavaScript side (Preact)
+const raw = await window.greet_from_v('Hello from Preact!');
 console.log(JSON.parse(raw)); // { ok: true, data: 'V says: "..."' }
 ```

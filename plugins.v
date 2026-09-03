@@ -18,6 +18,10 @@ fn backend_plugins() []BackendPlugin {
 
 fn register_backend_plugins(mut app App) {
 	for plugin in backend_plugins() {
+		if plugin.register == unsafe { nil } {
+			eprintln('[plugins:error] Skipping plugin without register fn: ${plugin.id}')
+			continue
+		}
 		plugin.register(mut app)
 	}
 }

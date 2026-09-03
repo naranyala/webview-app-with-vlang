@@ -2,10 +2,12 @@ module main
 
 import os
 
-const ui_build_path = os.join_path(@VMODROOT, 'ui', 'build')
+const frontend_dir = os.join_path(@VMODROOT, 'frontend-preact')
+const frontend_build_path = os.join_path(frontend_dir, 'dist')
+const frontend_dev_url = 'http://localhost:3000'
 const production_url = 'http://127.0.0.1:4321/'
 const production_server = '127.0.0.1:4321'
-const application_title = 'Webview App - Svelte + V'
+const application_title = 'Webview App - Preact + V'
 const application_width = 1024
 const application_height = 768
 

@@ -1,22 +1,11 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { isBridgeAvailable } from './lib/backend';
 	import { toolkitPlugins, type PluginId } from './lib/plugins';
 
 	let activeApp = $state<PluginId | null>(null);
 	let error = $state('');
 	let bridgeAvailable = $state(isBridgeAvailable());
-	let browserFullscreen = $state(false);
 	let activeItem = $derived(toolkitPlugins.find((plugin) => plugin.id === activeApp));
-
-	onMount(() => {
-		const syncFullscreenState = () => {
-			browserFullscreen = Boolean(document.fullscreenElement);
-		};
-
-		document.addEventListener('fullscreenchange', syncFullscreenState);
-		return () => document.removeEventListener('fullscreenchange', syncFullscreenState);
-	});
 
 	function openApp(plugin: (typeof toolkitPlugins)[number]) {
 		activeApp = plugin.id;
@@ -24,23 +13,8 @@
 	}
 
 	async function closeApp() {
-		if (document.fullscreenElement) {
-			await document.exitFullscreen().catch(() => undefined);
-		}
 		activeApp = null;
 		error = '';
-	}
-
-	async function toggleFullscreen() {
-		try {
-			if (document.fullscreenElement) {
-				await document.exitFullscreen();
-			} else {
-				await document.documentElement.requestFullscreen();
-			}
-		} catch {
-			error = 'Fullscreen is not available in this WebView';
-		}
 	}
 
 	function handleKeydown(event: KeyboardEvent) {
@@ -57,36 +31,38 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
+<div class="app-shell">
+	<aside class="sidebar" aria-label="Workspace navigation">
+		<button class="home-button" class:active={!activeApp} onclick={closeApp} aria-label="Return to home launcher">
+			<span class="home-mark">LP</span>
+			<span>Home</span>
+		</button>
+		<div class="sidebar-rule"></div>
+		<p class="sidebar-label">Tools</p>
+		<nav>
+			{#each toolkitPlugins as plugin}
+				<button
+					class="sidebar-item"
+					class:active={activeApp === plugin.id}
+					onclick={() => openApp(plugin)}
+					aria-current={activeApp === plugin.id ? 'page' : undefined}
+					style={`--accent: ${plugin.accent}`}
+				>
+					<span class="sidebar-icon">{plugin.shortName}</span>
+					<span class="sidebar-item-name">{plugin.name}</span>
+				</button>
+			{/each}
+		</nav>
+		<div class="sidebar-footer" class:offline={!bridgeAvailable}>
+			<span class="state-dot"></span>
+			<span>{bridgeAvailable ? 'Bridge online' : 'Bridge offline'}</span>
+		</div>
+	</aside>
+
+	<div class="app-main">
 {#if activeItem}
 	{@const Tool = activeItem.component}
 	<section class="workspace" aria-label={`${activeItem.name} workspace`}>
-		<aside class="sidebar" aria-label="Workspace navigation">
-			<button class="home-button" onclick={closeApp} aria-label="Return to home launcher">
-				<span class="home-mark">LP</span>
-				<span>Home</span>
-			</button>
-			<div class="sidebar-rule"></div>
-			<p class="sidebar-label">Tools</p>
-			<nav>
-				{#each toolkitPlugins as plugin}
-					<button
-						class="sidebar-item"
-						class:active={activeApp === plugin.id}
-						onclick={() => openApp(plugin)}
-						aria-current={activeApp === plugin.id ? 'page' : undefined}
-						style={`--accent: ${plugin.accent}`}
-					>
-						<span class="sidebar-icon">{plugin.shortName}</span>
-						<span class="sidebar-item-name">{plugin.name}</span>
-					</button>
-				{/each}
-			</nav>
-			<div class="sidebar-footer" class:offline={!bridgeAvailable}>
-				<span class="state-dot"></span>
-				<span>{bridgeAvailable ? 'Bridge online' : 'Bridge offline'}</span>
-			</div>
-		</aside>
-
 		<div class="workspace-main">
 			<header class="titlebar">
 				<button class="titlebar-button back-button" onclick={closeApp} aria-label="Back to launcher">
@@ -99,14 +75,6 @@
 				</div>
 				<div class="titlebar-actions">
 					<span class="window-state"><span class="state-dot"></span> Active</span>
-					<button
-						class="titlebar-button icon-button"
-						onclick={toggleFullscreen}
-						aria-label={browserFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-						title={browserFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-					>
-						{browserFullscreen ? '↙' : '↗'}
-					</button>
 					<button class="titlebar-button icon-button close-button" onclick={closeApp} aria-label="Close workspace">×</button>
 				</div>
 			</header>
@@ -172,11 +140,15 @@
 		</footer>
 	</main>
 {/if}
+	</div>
+</div>
 
 <style>
 	:global(*) { box-sizing: border-box; }
 	:global(html), :global(body) { margin: 0; min-width: 320px; min-height: 100%; background: #11111c; color: #f4f1ea; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 	:global(button) { font: inherit; }
+	.app-shell { min-height: 100vh; }
+	.app-main { min-height: 100vh; margin-left: 12rem; }
 	.launcher, .workspace { min-height: 100vh; }
 	.launcher { max-width: 1080px; margin: 0 auto; padding: 1.25rem clamp(1rem, 4vw, 3rem) 1rem; }
 	.launcher-header, .brand-lockup, .connection-pill, .launcher-intro, .section-heading, .menu-card-top, .launcher-footer, .titlebar, .titlebar-actions, .window-title { display: flex; align-items: center; }
@@ -210,10 +182,11 @@
 	.launcher-footer { margin-top: 2rem; padding-top: 0.8rem; border-top: 1px solid rgba(255, 255, 255, 0.1); }
 	.workspace { background: #f3f1ec; color: #171729; }
 	.sidebar { position: fixed; inset: 0 auto 0 0; z-index: 3; display: flex; width: 12rem; flex-direction: column; padding: 0.85rem 0.65rem; background: #171729; color: #f4f1ea; }
-	.workspace-main { min-height: 100vh; margin-left: 12rem; }
+	.workspace-main { min-height: 100vh; }
 	.home-button, .sidebar-item, .titlebar-button { border: 0; background: transparent; cursor: pointer; }
 	.home-button { display: flex; gap: 0.55rem; align-items: center; width: 100%; padding: 0.3rem; border-radius: 7px; color: #f4f1ea; font-size: 0.75rem; font-weight: 650; text-align: left; }
 	.home-button:hover, .home-button:focus-visible, .sidebar-item:hover, .sidebar-item:focus-visible { background: rgba(255, 255, 255, 0.08); outline: none; }
+	.home-button.active { background: rgba(255, 255, 255, 0.1); }
 	.home-mark { width: 1.9rem; height: 1.9rem; border-radius: 6px; }
 	.sidebar-rule { height: 1px; margin: 0.9rem 0 0.8rem; background: rgba(255, 255, 255, 0.1); }
 	.sidebar-label { margin-left: 0.4rem; color: #777586; }
@@ -245,7 +218,7 @@
 	@media (max-width: 620px) {
 		.menu-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 		.sidebar { width: 4rem; padding-right: 0.45rem; padding-left: 0.45rem; }
-		.workspace-main { margin-left: 4rem; }
+		.app-main { margin-left: 4rem; }
 		.home-button { justify-content: center; }
 		.home-button > span:last-child, .sidebar-label, .sidebar-item-name, .sidebar-footer > span:last-child { display: none; }
 		.sidebar-item, .sidebar-footer { justify-content: center; }

@@ -2,6 +2,8 @@
 /webview-app
 /build
 /dist/
+**/dist/
+frontend-preact/public/assets/
 /.vmodules/
 *.o
 *.a
