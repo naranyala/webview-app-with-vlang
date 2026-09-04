@@ -3,20 +3,58 @@ import { backend, backendError } from './backend.js';
 import { BackendStatus } from './backend-status.jsx';
 import { ErrorBoundary } from './error-boundary.jsx';
 import { frontendPlugins, getFrontendPlugin } from './plugins/index.js';
+import { styles, stylex } from './stylex.js';
 
 const TAB_SHORT = {
   disk: 'Disk',
   equalizer: 'EQ',
   notes: 'Notes',
-  todos: 'Todos'
+  todos: 'Todos',
+  quiz: 'Quiz',
+  paper: 'Paper'
 };
 
 const TAB_GLYPH = {
   disk: '◉',
   equalizer: '♪',
   notes: '✎',
-  todos: '✓'
+  todos: '✓',
+  quiz: '?',
+  paper: '▤'
 };
+
+const TOOLS_GROUP_IDS = ['disk', 'equalizer'];
+const QUIZ_GROUP_ID = 'quiz';
+const PAPER_GROUP_ID = 'paper';
+const QUIZ_MENU_ITEMS = [
+  {
+    id: 'session',
+    title: 'Quiz Session',
+    description: 'Practice cards and track what you know.'
+  },
+  {
+    id: 'editor',
+    title: 'Quiz Editor',
+    description: 'Add your own questions to a local collection.'
+  }
+];
+const PAPER_MENU_ITEMS = [
+  {
+    id: 'reader',
+    title: 'Reader',
+    description: 'Read and export the active paper.'
+  },
+  {
+    id: 'references',
+    title: 'Reference Manager',
+    description: 'Organize sources and generate citations.'
+  },
+  {
+    id: 'assets',
+    title: 'Image Assets',
+    description: 'Keep figures and visual evidence beside the paper.'
+  }
+];
 
 export function App() {
   const [activeApp, setActiveApp] = useState(null);
@@ -24,7 +62,36 @@ export function App() {
   const [windowActionPending, setWindowActionPending] = useState(false);
   const [windowError, setWindowError] = useState('');
   const [windowMaximized, setWindowMaximized] = useState(false);
+  const [openMenu, setOpenMenu] = useState(null);
   const [isNative] = useState(() => backend.isNative());
+
+  const topLevelPlugins = useMemo(
+    () =>
+      frontendPlugins.filter(
+        (plugin) =>
+          !TOOLS_GROUP_IDS.includes(plugin.id) &&
+          plugin.id !== QUIZ_GROUP_ID &&
+          plugin.id !== PAPER_GROUP_ID
+      ),
+    []
+  );
+  const toolsPlugins = useMemo(
+    () =>
+      frontendPlugins.filter((plugin) => TOOLS_GROUP_IDS.includes(plugin.id)),
+    []
+  );
+  const toolsActive = TOOLS_GROUP_IDS.includes(activeApp);
+  const quizActive = activeApp === QUIZ_GROUP_ID;
+  const paperActive = activeApp === PAPER_GROUP_ID;
+  const showToolsMenu = openMenu === 'tools';
+  const showQuizMenu = openMenu === 'quiz';
+  const showPaperMenu = openMenu === 'paper';
+  const [quizView, setQuizView] = useState('session');
+  const [paperView, setPaperView] = useState('reader');
+
+  function toggleMenu(menuId) {
+    setOpenMenu((current) => (current === menuId ? null : menuId));
+  }
 
   const openedWorkspaces = useMemo(
     () => frontendPlugins.filter((plugin) => openedApps.includes(plugin.id)),
@@ -36,6 +103,15 @@ export function App() {
   function selectApp(appId) {
     if (windowActionPending) return;
     setWindowError('');
+    if (TOOLS_GROUP_IDS.includes(appId)) {
+      setOpenMenu('tools');
+    } else if (appId === QUIZ_GROUP_ID) {
+      setOpenMenu('quiz');
+    } else if (appId === PAPER_GROUP_ID) {
+      setOpenMenu('paper');
+    } else {
+      setOpenMenu(null);
+    }
     setOpenedApps((current) =>
       current.includes(appId) ? current : [...current, appId]
     );
@@ -47,9 +123,20 @@ export function App() {
     }
   }
 
+  function selectQuizView(view) {
+    setQuizView(view);
+    selectApp(QUIZ_GROUP_ID);
+  }
+
+  function selectPaperView(view) {
+    setPaperView(view);
+    selectApp(PAPER_GROUP_ID);
+  }
+
   function goHome() {
     if (windowActionPending) return;
     setWindowError('');
+    setOpenMenu(null);
     setActiveApp(null);
     if (typeof document !== 'undefined') {
       document.title = 'WebView App';
@@ -80,124 +167,355 @@ export function App() {
     );
   const closeWindow = () => runWindowAction(() => backend.closeWindow());
 
-  const tabBar = (
-    <nav className="tabbar" aria-label="Primary">
-      <button
-        type="button"
-        className={`tab${activeApp === null ? ' active' : ''}`}
-        onClick={goHome}
-        aria-current={activeApp === null ? 'page' : undefined}
+  const sideBar = (
+    <>
+      <nav
+        {...stylex.props(styles.sidebar, styles.responsiveSidebar)}
+        aria-label="Primary"
       >
-        <span className="tab-glyph" aria-hidden="true">
-          ⌂
-        </span>
-        <span className="tab-label">Home</span>
-      </button>
-      {frontendPlugins.map((app) => (
         <button
           type="button"
-          key={app.id}
-          className={`tab tone-${app.tone}${activeApp === app.id ? ' active' : ''}`}
-          onClick={() => selectApp(app.id)}
-          aria-current={activeApp === app.id ? 'page' : undefined}
-        >
-          <span className="tab-glyph" aria-hidden="true">
-            {TAB_GLYPH[app.id] ?? '•'}
-          </span>
-          <span className="tab-label">{TAB_SHORT[app.id] ?? app.title}</span>
-          {openedApps.includes(app.id) && (
-            <span className="tab-dot" aria-hidden="true" />
+          {...stylex.props(
+            styles.tab,
+            styles.tabHover,
+            activeApp === null && styles.tabActive,
+            activeApp === null && styles.tabActiveBar
           )}
+          onClick={goHome}
+          aria-current={activeApp === null ? 'page' : undefined}
+        >
+          <span {...stylex.props(styles.tabGlyph)} aria-hidden="true">
+            ⌂
+          </span>
+          <span {...stylex.props(styles.tabLabel)}>Home</span>
         </button>
-      ))}
-    </nav>
+        {topLevelPlugins.map((app) => (
+          <button
+            type="button"
+            key={app.id}
+            {...stylex.props(
+              styles.tab,
+              styles.tabHover,
+              activeApp === app.id && styles.tabActive,
+              activeApp === app.id && styles.tabActiveBar
+            )}
+            onClick={() => selectApp(app.id)}
+            aria-current={activeApp === app.id ? 'page' : undefined}
+          >
+            <span {...stylex.props(styles.tabGlyph)} aria-hidden="true">
+              {TAB_GLYPH[app.id] ?? '•'}
+            </span>
+            <span {...stylex.props(styles.tabLabel)}>
+              {TAB_SHORT[app.id] ?? app.title}
+            </span>
+            {openedApps.includes(app.id) && (
+              <span {...stylex.props(styles.tabDot)} aria-hidden="true" />
+            )}
+          </button>
+        ))}
+        <div {...stylex.props(styles.tabGroup)}>
+          <button
+            type="button"
+            {...stylex.props(
+              styles.tab,
+              styles.tabHover,
+              paperActive && styles.tabActive,
+              paperActive && styles.tabActiveBar
+            )}
+            onClick={() =>
+              paperActive ? toggleMenu('paper') : selectPaperView('reader')
+            }
+            aria-expanded={showPaperMenu}
+            aria-controls="paper-panel"
+          >
+            <span {...stylex.props(styles.tabGlyph)} aria-hidden="true">
+              {TAB_GLYPH.paper}
+            </span>
+            <span {...stylex.props(styles.tabLabel)}>Paper</span>
+            <span {...stylex.props(styles.submenuChevron)} aria-hidden="true">
+              {showPaperMenu ? '▴' : '▾'}
+            </span>
+          </button>
+        </div>
+        <div {...stylex.props(styles.tabGroup)}>
+          <button
+            type="button"
+            {...stylex.props(
+              styles.tab,
+              styles.tabHover,
+              quizActive && styles.tabActive,
+              quizActive && styles.tabActiveBar
+            )}
+            onClick={() =>
+              quizActive ? toggleMenu('quiz') : selectQuizView('session')
+            }
+            aria-expanded={showQuizMenu}
+            aria-controls="quiz-panel"
+          >
+            <span {...stylex.props(styles.tabGlyph)} aria-hidden="true">
+              {TAB_GLYPH.quiz}
+            </span>
+            <span {...stylex.props(styles.tabLabel)}>Quiz</span>
+            <span {...stylex.props(styles.submenuChevron)} aria-hidden="true">
+              {showQuizMenu ? '▴' : '▾'}
+            </span>
+          </button>
+        </div>
+        <div {...stylex.props(styles.tabGroup)}>
+          <button
+            type="button"
+            {...stylex.props(
+              styles.tab,
+              styles.tabHover,
+              toolsActive && styles.tabActive,
+              toolsActive && styles.tabActiveBar
+            )}
+            onClick={() => toggleMenu('tools')}
+            aria-expanded={showToolsMenu}
+            aria-controls="tools-panel"
+          >
+            <span {...stylex.props(styles.tabGlyph)} aria-hidden="true">
+              ◈
+            </span>
+            <span {...stylex.props(styles.tabLabel)}>Tools</span>
+            <span {...stylex.props(styles.submenuChevron)} aria-hidden="true">
+              {showToolsMenu ? '▴' : '▾'}
+            </span>
+          </button>
+        </div>
+      </nav>
+      {showToolsMenu && (
+        <aside
+          {...stylex.props(styles.sidebarPanel, styles.responsiveSidebarPanel)}
+          id="tools-panel"
+          aria-label="Tools submenu"
+        >
+          <p {...stylex.props(styles.panelEyebrow)}>Menu</p>
+          <h2 {...stylex.props(styles.panelTitle)}>Tools</h2>
+          <div {...stylex.props(styles.panelList)}>
+            {toolsPlugins.map((app) => (
+              <button
+                type="button"
+                key={app.id}
+                {...stylex.props(
+                  styles.panelRow,
+                  styles.panelRowHover,
+                  activeApp === app.id && styles.panelRowActive
+                )}
+                onClick={() => selectApp(app.id)}
+                aria-current={activeApp === app.id ? 'page' : undefined}
+              >
+                <span {...stylex.props(styles.rowGlyph)} aria-hidden="true">
+                  {TAB_GLYPH[app.id] ?? '•'}
+                </span>
+                <span {...stylex.props(styles.rowCopy)}>
+                  <strong {...stylex.props(styles.rowCopyStrong)}>
+                    {app.title}
+                  </strong>
+                  <small {...stylex.props(styles.rowCopySmall)}>
+                    {app.description}
+                  </small>
+                </span>
+                <span {...stylex.props(styles.rowChevron)} aria-hidden="true">
+                  ›
+                </span>
+              </button>
+            ))}
+          </div>
+        </aside>
+      )}
+      {showQuizMenu && (
+        <aside
+          {...stylex.props(styles.sidebarPanel, styles.responsiveSidebarPanel)}
+          id="quiz-panel"
+          aria-label="Quiz submenu"
+        >
+          <p {...stylex.props(styles.panelEyebrow)}>Knowledge deck</p>
+          <h2 {...stylex.props(styles.panelTitle)}>Quiz</h2>
+          <div {...stylex.props(styles.panelList)}>
+            {QUIZ_MENU_ITEMS.map((item) => (
+              <button
+                type="button"
+                key={item.id}
+                {...stylex.props(
+                  styles.panelRow,
+                  styles.panelRowHover,
+                  quizView === item.id && quizActive && styles.panelRowActive
+                )}
+                onClick={() => selectQuizView(item.id)}
+                aria-current={
+                  quizView === item.id && quizActive ? 'page' : undefined
+                }
+              >
+                <span {...stylex.props(styles.rowGlyph)} aria-hidden="true">
+                  {item.id === 'editor' ? '+' : '>'}
+                </span>
+                <span {...stylex.props(styles.rowCopy)}>
+                  <strong {...stylex.props(styles.rowCopyStrong)}>
+                    {item.title}
+                  </strong>
+                  <small {...stylex.props(styles.rowCopySmall)}>
+                    {item.description}
+                  </small>
+                </span>
+                <span {...stylex.props(styles.rowChevron)} aria-hidden="true">
+                  ›
+                </span>
+              </button>
+            ))}
+          </div>
+        </aside>
+      )}
+      {showPaperMenu && (
+        <aside
+          {...stylex.props(styles.sidebarPanel, styles.responsiveSidebarPanel)}
+          id="paper-panel"
+          aria-label="Paper submenu"
+        >
+          <p {...stylex.props(styles.panelEyebrow)}>Research desk</p>
+          <h2 {...stylex.props(styles.panelTitle)}>Academic Paper</h2>
+          <div {...stylex.props(styles.panelList)}>
+            {PAPER_MENU_ITEMS.map((item) => (
+              <button
+                type="button"
+                key={item.id}
+                {...stylex.props(
+                  styles.panelRow,
+                  styles.panelRowHover,
+                  paperView === item.id && styles.panelRowActive
+                )}
+                onClick={() => selectPaperView(item.id)}
+                aria-current={paperView === item.id ? 'page' : undefined}
+              >
+                <span {...stylex.props(styles.rowGlyph)} aria-hidden="true">
+                  {item.id === 'reader'
+                    ? '>'
+                    : item.id === 'references'
+                      ? '#'
+                      : '▧'}
+                </span>
+                <span {...stylex.props(styles.rowCopy)}>
+                  <strong {...stylex.props(styles.rowCopyStrong)}>
+                    {item.title}
+                  </strong>
+                  <small {...stylex.props(styles.rowCopySmall)}>
+                    {item.description}
+                  </small>
+                </span>
+                <span {...stylex.props(styles.rowChevron)} aria-hidden="true">
+                  ›
+                </span>
+              </button>
+            ))}
+          </div>
+        </aside>
+      )}
+    </>
   );
 
   if (activeApp === null) {
     return (
-      <div className="shell">
-        <header className="topbar">
-          <span className="brand-mark">WV</span>
-          <span className="brand-name">WebView</span>
-          <span className="topbar-status">
-            <span className="status-dot" aria-hidden="true" />
+      <div
+        {...stylex.props(
+          styles.shell,
+          styles.responsiveShell,
+          (showToolsMenu || showQuizMenu || showPaperMenu) && styles.shellPanel,
+          (showToolsMenu || showQuizMenu || showPaperMenu) &&
+            styles.responsivePanelShell
+        )}
+      >
+        <header {...stylex.props(styles.topbar)}>
+          <span {...stylex.props(styles.brandMark)}>WV</span>
+          <span {...stylex.props(styles.brandName)}>WebView</span>
+          <span {...stylex.props(styles.topbarStatus)}>
+            <span {...stylex.props(styles.statusDot)} aria-hidden="true" />
             <span>{isNative ? 'Native' : 'Mock'}</span>
           </span>
         </header>
 
-        <main className="launcher-main">
-          <div className="launcher-head">
-            <p className="eyebrow">Toolkit</p>
-            <h1>Tools</h1>
-            <p className="lede">
+        <main {...stylex.props(styles.launcherMain)}>
+          <div {...stylex.props(styles.launcherHead)}>
+            <p {...stylex.props(styles.eyebrow)}>Toolkit</p>
+            <h1 {...stylex.props(styles.pageTitle)}>Tools</h1>
+            <p {...stylex.props(styles.lede)}>
               {frontendPlugins.length} small utilities. Pick one to start.
             </p>
           </div>
 
           {windowError && (
-            <p className="error" role="alert">
+            <p {...stylex.props(styles.error)} role="alert">
               {windowError}
             </p>
           )}
 
-          <nav className="tool-list" aria-label="Available tools">
+          <nav
+            {...stylex.props(styles.toolList, styles.responsiveToolList)}
+            aria-label="Available tools"
+          >
             {frontendPlugins.map((app) => (
               <button
                 type="button"
                 key={app.id}
-                className={`tool-row tone-${app.tone}`}
+                {...stylex.props(styles.toolRow, styles.toolRowHover)}
                 onClick={() => selectApp(app.id)}
               >
-                <span
-                  className={`row-glyph tone-${app.tone}`}
-                  aria-hidden="true"
-                >
+                <span {...stylex.props(styles.rowGlyph)} aria-hidden="true">
                   {TAB_GLYPH[app.id] ?? '•'}
                 </span>
-                <span className="row-copy">
-                  <strong>{app.title}</strong>
-                  <small>{app.description}</small>
+                <span {...stylex.props(styles.rowCopy)}>
+                  <strong {...stylex.props(styles.rowCopyStrong)}>
+                    {app.title}
+                  </strong>
+                  <small {...stylex.props(styles.rowCopySmall)}>
+                    {app.description}
+                  </small>
                 </span>
-                <span className="row-chevron" aria-hidden="true">
+                <span {...stylex.props(styles.rowChevron)} aria-hidden="true">
                   ›
                 </span>
               </button>
             ))}
           </nav>
 
-          <div className="launcher-status">
+          <div>
             <BackendStatus compact />
           </div>
         </main>
 
-        {tabBar}
+        {sideBar}
       </div>
     );
   }
 
   return (
-    <div className="shell">
-      <header className="topbar workspace-topbar">
+    <div
+      {...stylex.props(
+        styles.shell,
+        styles.responsiveShell,
+        (showToolsMenu || showQuizMenu || showPaperMenu) && styles.shellPanel,
+        (showToolsMenu || showQuizMenu || showPaperMenu) &&
+          styles.responsivePanelShell
+      )}
+    >
+      <header {...stylex.props(styles.topbar)}>
         <button
           type="button"
-          className="back-button"
+          {...stylex.props(styles.backButton)}
           onClick={goHome}
           aria-label="Back to tools"
         >
           <span aria-hidden="true">‹</span>
-          <span className="back-label">Tools</span>
+          <span {...stylex.props(styles.backLabel)}>Tools</span>
         </button>
-        <div className="titlebar-name">
-          <span
-            className={`titlebar-dot tone-${currentApp.tone}`}
-            aria-hidden="true"
-          />
+        <div {...stylex.props(styles.titlebarName)}>
+          <span {...stylex.props(styles.titlebarDot)} aria-hidden="true" />
           <strong>{currentApp.title}</strong>
         </div>
         {isNative ? (
-          <div className="window-actions">
+          <div {...stylex.props(styles.windowActions)}>
             <button
               type="button"
+              {...stylex.props(styles.windowAction, styles.windowActionHover)}
               onClick={minimizeWindow}
               disabled={windowActionPending}
               aria-label="Minimize window"
@@ -206,6 +524,7 @@ export function App() {
             </button>
             <button
               type="button"
+              {...stylex.props(styles.windowAction, styles.windowActionHover)}
               onClick={toggleMaximize}
               disabled={windowActionPending}
               aria-label={
@@ -216,7 +535,7 @@ export function App() {
             </button>
             <button
               type="button"
-              className="close-button"
+              {...stylex.props(styles.windowAction, styles.closeHover)}
               onClick={closeWindow}
               disabled={windowActionPending}
               aria-label="Close window"
@@ -225,28 +544,31 @@ export function App() {
             </button>
           </div>
         ) : (
-          <span className="topbar-status">
-            <span className="status-dot" aria-hidden="true" />
+          <span {...stylex.props(styles.topbarStatus)}>
+            <span {...stylex.props(styles.statusDot)} aria-hidden="true" />
             <span>Mock</span>
           </span>
         )}
       </header>
 
       {windowError && (
-        <p className="error workspace-error" role="alert">
+        <p {...stylex.props(styles.error)} role="alert">
           {windowError}
         </p>
       )}
 
       {openedWorkspaces.length > 1 && (
-        <section className="recent-strip" aria-label="Recently opened">
+        <section
+          {...stylex.props(styles.chipStrip)}
+          aria-label="Recently opened"
+        >
           {openedWorkspaces
             .filter((app) => app.id !== activeApp)
             .map((app) => (
               <button
                 type="button"
                 key={app.id}
-                className="chip"
+                {...stylex.props(styles.chip)}
                 onClick={() => selectApp(app.id)}
               >
                 {TAB_SHORT[app.id] ?? app.title}
@@ -255,13 +577,16 @@ export function App() {
         </section>
       )}
 
-      <main className="workspace-body">
+      <main {...stylex.props(styles.workspaceBody)}>
         <ErrorBoundary key={activeApp} onReset={goHome}>
-          <ActivePlugin />
+          <ActivePlugin
+            quizView={activeApp === QUIZ_GROUP_ID ? quizView : undefined}
+            paperView={activeApp === PAPER_GROUP_ID ? paperView : undefined}
+          />
         </ErrorBoundary>
       </main>
 
-      {tabBar}
+      {sideBar}
     </div>
   );
 }

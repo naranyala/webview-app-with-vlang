@@ -4,8 +4,13 @@ import os
 import cli
 
 const frontend_dir = os.join_path(@VMODROOT, 'frontend-preact')
+const frontend_node_modules = os.join_path(frontend_dir, 'node_modules')
 
 fn install_frontend() ! {
+	if os.is_dir(frontend_node_modules) {
+		return
+	}
+
 	res := os.execute('npm ci --no-bin-links --prefix ${frontend_dir}')
 	if res.exit_code == 0 {
 		return
@@ -67,7 +72,7 @@ fn test_all() ! {
 	print(frontend_tests.output)
 
 	println('Running backend tests...')
-	for test_file in ['bridge_test.v', 'plugins_test.v', 'server_test.v'] {
+	for test_file in ['bridge_test.v', 'plugins_test.v', 'server_test.v', 'quiz_storage_test.v'] {
 		backend := os.execute('v test ${test_file}')
 		if backend.exit_code != 0 {
 			eprintln('Backend tests failed in ${test_file}:\n${backend.output}')

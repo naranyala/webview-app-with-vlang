@@ -1,7 +1,9 @@
+import { AcademicPaper } from './academic-paper.jsx';
 import { AudioEqualizer } from './audio-equalizer.jsx';
 import { ChainNotes } from './chain-notes.jsx';
 import { defineFrontendPlugin } from './contract.js';
 import { DiskScanner } from './disk-scanner.jsx';
+import { Quiz } from './quiz.jsx';
 import { TodoApp } from './todo.jsx';
 
 export const diskScannerPlugin = defineFrontendPlugin({
@@ -28,7 +30,7 @@ export const chainNotesPlugin = defineFrontendPlugin({
   id: 'notes',
   index: '03',
   title: 'Chain Notes',
-  description: 'Capture connected thoughts and carry them anywhere.',
+  description: 'Save AI questions and answers in a local notebook.',
   tone: 'gold',
   symbol: 'WRITING',
   component: ChainNotes
@@ -44,11 +46,33 @@ export const todoPlugin = defineFrontendPlugin({
   component: TodoApp
 });
 
+export const quizPlugin = defineFrontendPlugin({
+  id: 'quiz',
+  index: '05',
+  title: 'Quiz',
+  description: 'Practice Blender, audio programming, and other deep topics.',
+  tone: 'coral',
+  symbol: 'LEARN',
+  component: Quiz
+});
+
+export const academicPaperPlugin = defineFrontendPlugin({
+  id: 'paper',
+  index: '06',
+  title: 'Academic Paper',
+  description: 'Read research papers in a focused two-column workspace.',
+  tone: 'blue',
+  symbol: 'PAPER',
+  component: AcademicPaper
+});
+
 const registeredPlugins = [
   diskScannerPlugin,
   audioEqualizerPlugin,
   chainNotesPlugin,
-  todoPlugin
+  todoPlugin,
+  quizPlugin,
+  academicPaperPlugin
 ];
 const pluginIds = new Set();
 

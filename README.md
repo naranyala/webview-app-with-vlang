@@ -1,91 +1,144 @@
-# Webview App - Preact + V
+# WebView App with V
 
-Desktop application using [ttytm/webview](https://github.com/ttytm/webview) with a Preact + esbuild frontend and V backend.
+A local desktop toolkit built with the [V language](https://vlang.io/),
+[ttytm/webview](https://github.com/ttytm/webview), Preact, and esbuild. The
+native shell owns the window, local HTTP server, and bridge. The canonical
+frontend is the StyleX-powered Preact application in `frontend-preact/`.
+
+## Current Features
+
+- Toolkit launcher with responsive navigation and native window controls.
+- Chain Notes for editable AI questions and answers, local search, and PDF
+  export.
+- Quiz sessions and collection/question editing backed by versioned JSON in the
+  operating system configuration directory.
+- Academic Paper reader with a two-column layout, reference manager, image
+  asset library, and print/download PDF flows.
+- Interactive Audio Equalizer and Disk Scanner UI prototypes using mock data.
+- Consistent V-to-JavaScript bridge responses with validation and timeout
+  handling.
+- Local static server with URL decoding, method checks, MIME types, and path
+  traversal protection.
 
 ## Prerequisites
 
-- [V compiler](https://github.com/vlang/v)
-- [Node.js](https://nodejs.org/) (v18+)
-- Linux: `webkit2gtk-4.1` and `gtk3` dev packages
+- V compiler
+- Node.js 18 or newer and npm
+- Linux: GTK 3 and WebKitGTK 4.1 development packages
+- The `ttytm.webview` V module
 
-### Install webview module
+Install the WebView module with:
 
 ```sh
 v install ttytm.webview
 v ~/.vmodules/ttytm/webview/build.vsh
 ```
 
+Native package names vary by distribution. Install the GTK/WebKitGTK
+development packages provided by your operating system before compiling.
+
 ## Quick Start
 
-```sh
-# Build everything (frontend + app)
-v run build.vsh
+Build the frontend and native application, then launch it:
 
-# Run the app
+```sh
+v run build.vsh
 ./webview-app
 ```
 
-## Development Mode
-
-Run the Preact dev server and V app separately:
+The convenience script performs dependency checks, builds both layers, and
+launches the result:
 
 ```sh
-# Terminal 1: Start Preact dev server
-cd frontend-preact && npm run dev
+./run.sh
+```
 
-# Terminal 2: Run V app in dev mode
+## Development
+
+Run the Preact development server and V shell in separate terminals:
+
+```sh
+# Terminal 1
+cd frontend-preact
+npm ci --no-bin-links
+npm run dev
+
+# Terminal 2, from the repository root
 v -d dev run .
 ```
 
-Development builds enable WebKit developer extras. On Linux, open the frontend
-Inspector with `Ctrl+Shift+I` or right-click the page and choose `Inspect
-Element`. Frontend console messages are also printed to the V terminal.
+The development shell enables WebKit developer extras. On Linux, open the
+inspector with `Ctrl+Shift+I` or the page context menu. Frontend console output
+is also forwarded to the V terminal.
 
-## Build Commands
+## Commands
 
-| Command | Description |
-|---------|-------------|
-| `v run build.vsh` | Build frontend + app |
-| `v run build.vsh ui` | Build frontend only |
-| `v run build.vsh run` | Run compiled app |
-| `v run build.vsh dev` | Run in dev mode |
-| `v run build.vsh test` | Run frontend and backend tests |
-| `v -d dev run .` | Run with dev mode flag |
+| Command | Purpose |
+| --- | --- |
+| `v run build.vsh` | Install dependencies if needed, build the frontend, and compile `webview-app`. |
+| `v run build.vsh ui` | Build only the Preact frontend. |
+| `v run build.vsh dev` | Run the V shell with the development frontend URL. |
+| `v run build.vsh run` | Run the compiled application. |
+| `v run build.vsh test` | Run frontend checks/tests and the V test files. |
+| `npm run check --prefix frontend-preact` | Run Biome checks. |
+| `npm test --prefix frontend-preact` | Run frontend Node tests. |
+| `npm run build --prefix frontend-preact` | Create `frontend-preact/dist/index.html`. |
+| `npm run bench:notes-search --prefix frontend-preact` | Compare note search implementations. |
+| `npm run bench:notes-pdf --prefix frontend-preact` | Benchmark Node-compatible PDF renderers. |
 
-## Project Structure
+## Architecture
 
-```
-.
-├── main.v              # V backend entry point
-├── plugins.v           # Backend plugin registry
-├── bridge.v            # Core WebView bridge plugin
-├── server.v            # Local static frontend server
-├── build.vsh           # Build automation script
-├── v.mod               # V module definition
-├── frontend-preact/    # Canonical Preact + esbuild frontend
-│   ├── src/main.jsx
-│   ├── public/index.html
-│   ├── build.js
-│   └── package.json
-└── ui/                 # Legacy Svelte frontend
-```
+```text
+V process
+├── main.v              window lifecycle and startup
+├── server.v            loopback static server for frontend-preact/dist
+├── bridge.v            WebView bindings and response envelope
+├── quiz_storage.v      validated atomic JSON persistence
+└── plugins.v           backend plugin registration
 
-## V ↔ JavaScript Bridge
-
-V functions are bound to the webview and callable from JavaScript. The bridge is
-available to the frontend for future native features. Methods return a JSON
-response with a consistent `{ ok, data, error }` shape:
-
-```v
-// V side
-fn greet_from_v(e &webview.Event) string {
-    msg := e.get_arg[string](0) or { 'No message' }
-    return bridge_success('V says: "${msg}"')
-}
+frontend-preact
+├── src/App.jsx         launcher, shell navigation, and workspace lifecycle
+├── src/plugins/        registered Preact tools
+├── src/stylex.js       extracted component styles
+├── build.js            esbuild + StyleX + single-file output
+└── dist/index.html     generated production asset
 ```
 
-```javascript
-// JavaScript side (Preact)
-const raw = await window.greet_from_v('Hello from Preact!');
-console.log(JSON.parse(raw)); // { ok: true, data: 'V says: "..."' }
-```
+The `ui/` directory is the legacy Svelte/Vite frontend and is not used by the
+current root build. See the detailed documentation in [`docs/`](docs/).
+
+## Data and Privacy
+
+Quiz data is stored by the V backend at the platform configuration directory,
+normally `~/.config/webview-app/quizzes.json` on Linux. The file is versioned,
+validated, protected by a mutex, and written through a temporary file followed
+by rename.
+
+Chain Notes, Todos, and Academic Papers currently use browser `localStorage`.
+Academic image assets are stored as browser data URLs, so large image libraries
+can reach browser storage limits. No cloud sync or remote data service is
+configured.
+
+## Bridge Contract
+
+Native functions are exposed as `window.*` bindings and return JSON with the
+shape `{ "ok": true, "data": "..." }` or
+`{ "ok": false, "error": "..." }`. The frontend unwraps responses, validates
+payloads, and rejects calls that exceed the bridge timeout. See
+[`docs/bridge-api.md`](docs/bridge-api.md).
+
+## Known Limitations
+
+- Disk Scanner and Audio Equalizer are currently frontend prototypes; they do
+  not enumerate real disks or process audio.
+- Native window lifecycle actions are implemented for Linux; other platforms
+  return unsupported responses.
+- The production HTTP server has no graceful shutdown path yet.
+- Chain Notes, Todos, and Academic Papers are not yet V-backed or synchronized
+  across native/browser storage.
+- Release packaging, installers, CI, CSP, and platform-specific native
+  dependency automation remain future work.
+
+## License
+
+No project license has been declared yet.

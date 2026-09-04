@@ -1,6 +1,6 @@
 const esbuild = require('esbuild');
 const { singleFileHtmlPlugin } = require('./plugins/single-file-html');
-const { tailwindPlugin } = require('./plugins/tailwind');
+const { esbuild: stylexPlugin } = require('@stylexjs/unplugin');
 
 const watch = process.argv.includes('--watch');
 const serve = process.argv.includes('--serve');
@@ -13,7 +13,15 @@ async function build() {
     sourcemap: watch,
     jsx: 'automatic',
     jsxImportSource: 'preact',
-    plugins: [tailwindPlugin(), singleFileHtmlPlugin()],
+    metafile: true,
+    plugins: [
+      stylexPlugin({
+        useCSSLayers: true,
+        importSources: ['@stylexjs/stylex'],
+        unstable_moduleResolution: { type: 'commonJS' }
+      }),
+      singleFileHtmlPlugin()
+    ],
     loader: {
       '.css': 'css'
     },

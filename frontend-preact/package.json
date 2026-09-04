@@ -10,18 +10,26 @@
     "format": "node node_modules/@biomejs/biome/bin/biome format --write .",
     "format:check": "node node_modules/@biomejs/biome/bin/biome format .",
     "lint": "node node_modules/@biomejs/biome/bin/biome lint .",
+    "bench:notes-pdf": "node benchmarks/notes-pdf.mjs",
+    "bench:notes-search": "node benchmarks/notes-search.mjs",
     "serve": "node build.js --serve",
-    "test": "node --test src/backend.test.mjs"
+    "test": "node --test src/*.test.mjs"
   },
   "dependencies": {
+    "@stylexjs/stylex": "^0.19.0",
+    "fast-fuzzy": "^1.12.0",
+    "html2pdf.js": "^0.14.0",
     "jspdf": "^4.2.1",
     "preact": "^10.27.2"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.11",
-    "autoprefixer": "^10.4.20",
+    "@stylexjs/unplugin": "^0.19.0",
     "esbuild": "^0.25.9",
-    "postcss": "^8.4.49",
-    "tailwindcss": "^3.4.17"
+    "fuse.js": "^7.5.0",
+    "fuzzysort": "^4.0.2",
+    "html-to-pdfmake": "^2.5.34",
+    "jsdom": "^30.0.1",
+    "pdfmake": "^0.3.11"
   }
 }

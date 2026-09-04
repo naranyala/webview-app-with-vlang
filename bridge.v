@@ -70,6 +70,85 @@ fn register_core_bridge(mut app App) {
 	app.window.bind('maximize_window', app.maximize_window)
 	app.window.bind('restore_window', app.restore_window)
 	app.window.bind('close_window', app.close_window)
+	app.window.bind('quiz_list', app.quiz_list)
+	app.window.bind('quiz_create_collection', app.quiz_create_collection)
+	app.window.bind('quiz_update_collection', app.quiz_update_collection)
+	app.window.bind('quiz_delete_collection', app.quiz_delete_collection)
+	app.window.bind('quiz_create_question', app.quiz_create_question)
+	app.window.bind('quiz_update_question', app.quiz_update_question)
+	app.window.bind('quiz_delete_question', app.quiz_delete_question)
+}
+
+fn (mut app App) quiz_list(_ &webview.Event) string {
+	collections := app.quiz.list() or {
+		log_bridge_error('quiz_list', err.msg())
+		return bridge_failure(err.msg())
+	}
+	return bridge_success(json.encode(collections))
+}
+
+fn (mut app App) quiz_create_collection(e &webview.Event) string {
+	payload := e.get_arg[string](0) or {
+		return bridge_failure('Quiz collection payload is required')
+	}
+	collection := app.quiz.create_collection(payload) or {
+		log_bridge_error('quiz_create_collection', err.msg())
+		return bridge_failure(err.msg())
+	}
+	return bridge_success(json.encode(collection))
+}
+
+fn (mut app App) quiz_update_collection(e &webview.Event) string {
+	payload := e.get_arg[string](0) or {
+		return bridge_failure('Quiz collection payload is required')
+	}
+	collection := app.quiz.update_collection(payload) or {
+		log_bridge_error('quiz_update_collection', err.msg())
+		return bridge_failure(err.msg())
+	}
+	return bridge_success(json.encode(collection))
+}
+
+fn (mut app App) quiz_delete_collection(e &webview.Event) string {
+	id := e.get_arg[string](0) or { return bridge_failure('Quiz collection id is required') }
+	app.quiz.delete_collection(id) or {
+		log_bridge_error('quiz_delete_collection', err.msg())
+		return bridge_failure(err.msg())
+	}
+	return bridge_success('Quiz collection deleted')
+}
+
+fn (mut app App) quiz_create_question(e &webview.Event) string {
+	payload := e.get_arg[string](0) or {
+		return bridge_failure('Quiz question payload is required')
+	}
+	collection := app.quiz.create_question(payload) or {
+		log_bridge_error('quiz_create_question', err.msg())
+		return bridge_failure(err.msg())
+	}
+	return bridge_success(json.encode(collection))
+}
+
+fn (mut app App) quiz_update_question(e &webview.Event) string {
+	payload := e.get_arg[string](0) or {
+		return bridge_failure('Quiz question payload is required')
+	}
+	collection := app.quiz.update_question(payload) or {
+		log_bridge_error('quiz_update_question', err.msg())
+		return bridge_failure(err.msg())
+	}
+	return bridge_success(json.encode(collection))
+}
+
+fn (mut app App) quiz_delete_question(e &webview.Event) string {
+	payload := e.get_arg[string](0) or {
+		return bridge_failure('Quiz question payload is required')
+	}
+	collection := app.quiz.delete_question(payload) or {
+		log_bridge_error('quiz_delete_question', err.msg())
+		return bridge_failure(err.msg())
+	}
+	return bridge_success(json.encode(collection))
 }
 
 fn greet_from_v(e &webview.Event) string {

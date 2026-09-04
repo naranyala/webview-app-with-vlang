@@ -8,12 +8,18 @@ struct App {
 mut:
 	window  webview.Webview
 	counter CounterState
+	quiz    QuizStore
 }
 
 fn main() {
 	config := default_app_config()
+	quiz_store := new_quiz_store() or {
+		eprintln('Quiz storage initialization failed: ${err}')
+		return
+	}
 	mut app := App{
 		window: webview.create(debug: config.debug)
+		quiz:   quiz_store
 	}
 	app.bind()
 	app.window.set_title(config.title)

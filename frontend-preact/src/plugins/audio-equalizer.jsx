@@ -1,4 +1,5 @@
 import { useState } from 'preact/hooks';
+import { styles, stylex } from '../stylex.js';
 
 const equalizerPresets = [
   { name: 'Flat', values: [0, 0, 0, 0, 0, 0, 0] },
@@ -31,66 +32,99 @@ export function AudioEqualizer() {
   }
 
   return (
-    <section className="tool-page">
-      <div className="tool-heading">
+    <section className={stylex.props(styles.toolPage).className}>
+      <div className={stylex.props(styles.toolHeading).className}>
         <div>
-          <p className="eyebrow">Sound</p>
-          <h1>Equalizer</h1>
-          <p>Tune the mix. Changes are local for now.</p>
+          <p className={stylex.props(styles.eyebrow).className}>Sound</p>
+          <h1 className={stylex.props(styles.headingTitle).className}>
+            Equalizer
+          </h1>
+          <p className={stylex.props(styles.headingText).className}>
+            Tune the mix. Changes are local for now.
+          </p>
         </div>
-        <span className="mock-badge">Mock</span>
+        <span className={stylex.props(styles.mockBadge).className}>Mock</span>
       </div>
 
-      <div className="audio-console tool-panel">
-        <div className="track-meta">
-          <div className="album-art">AUX</div>
+      <div className={stylex.props(styles.toolPanel).className}>
+        <div className={stylex.props(styles.trackMeta).className}>
+          <div className={stylex.props(styles.albumArt).className}>AUX</div>
           <div>
-            <span className="panel-label">Source</span>
-            <h2>Night drive</h2>
-            <span className="track-source">Local mock</span>
+            <span className={stylex.props(styles.panelLabel).className}>
+              Source
+            </span>
+            <h2 className={stylex.props(styles.trackTitle).className}>
+              Night drive
+            </h2>
+            <span className={stylex.props(styles.mutedSmall).className}>
+              Local mock
+            </span>
           </div>
           <button
             type="button"
-            className={`toggle-button${equalizerEnabled ? ' enabled' : ''}`}
+            className={
+              stylex.props(
+                styles.toggle,
+                equalizerEnabled && styles.toggleEnabled
+              ).className
+            }
             onClick={() => setEqualizerEnabled((value) => !value)}
           >
             {equalizerEnabled ? 'Enabled' : 'Bypassed'}
           </button>
         </div>
         <div
-          className="visualizer"
+          className={stylex.props(styles.visualizer).className}
           role="img"
           aria-label="Mock audio visualizer"
         >
           {visualizerLevels.map((level, index) => (
             <span
               key={index}
-              className={index % 4 === 0 ? 'accent-bar' : undefined}
+              className={
+                stylex.props(
+                  styles.visualizerBar,
+                  index % 4 === 0 && styles.visualizerAccent
+                ).className
+              }
               style={`height: ${level}%`}
             />
           ))}
         </div>
-        <div className="transport-row">
+        <div className={stylex.props(styles.transportRow).className}>
           <span>01:24</span>
-          <div className="transport-track">
-            <span />
+          <div className={stylex.props(styles.transportTrack).className}>
+            <span className={stylex.props(styles.transportFill).className} />
           </div>
           <span>03:48</span>
         </div>
       </div>
 
-      <div className="equalizer-grid">
-        <div className="tool-panel equalizer-panel">
-          <div className="panel-heading">
+      <div
+        className={
+          stylex.props(styles.gridTwo, styles.responsiveGrid).className
+        }
+      >
+        <div className={stylex.props(styles.toolPanel).className}>
+          <div className={stylex.props(styles.panelHeading).className}>
             <div>
-              <span className="panel-label">Bands</span>
-              <h2>{activePreset}</h2>
+              <span className={stylex.props(styles.panelLabel).className}>
+                Bands
+              </span>
+              <h2 className={stylex.props(styles.panelHeadingTitle).className}>
+                {activePreset}
+              </h2>
             </div>
-            <span className="panel-status">Local</span>
+            <span className={stylex.props(styles.panelStatus).className}>
+              Local
+            </span>
           </div>
-          <div className="bands">
+          <div className={stylex.props(styles.bands).className}>
             {bandValues.map((value, index) => (
-              <label className="band" key={bandLabels[index]}>
+              <label
+                className={stylex.props(styles.band).className}
+                key={bandLabels[index]}
+              >
                 <input
                   type="range"
                   min="-12"
@@ -98,16 +132,19 @@ export function AudioEqualizer() {
                   value={value}
                   onInput={(event) => updateBand(index, event)}
                   aria-label={`${bandLabels[index]} Hz gain`}
+                  className={stylex.props(styles.bandInput).className}
                 />
-                <span className="band-value">
+                <span className={stylex.props(styles.bandValue).className}>
                   {value > 0 ? '+' : ''}
                   {value}
                 </span>
-                <span className="band-label">{bandLabels[index]}</span>
+                <span className={stylex.props(styles.bandLabel).className}>
+                  {bandLabels[index]}
+                </span>
               </label>
             ))}
           </div>
-          <div className="master-row">
+          <div className={stylex.props(styles.footerRow).className}>
             <span>Master</span>
             <input
               type="range"
@@ -123,21 +160,28 @@ export function AudioEqualizer() {
           </div>
         </div>
 
-        <div className="tool-panel presets-panel">
-          <span className="panel-label">Presets</span>
-          <div className="preset-list">
+        <div className={stylex.props(styles.toolPanel).className}>
+          <span className={stylex.props(styles.panelLabel).className}>
+            Presets
+          </span>
+          <div className={stylex.props(styles.presetList).className}>
             {equalizerPresets.map((preset) => (
               <button
                 type="button"
                 key={preset.name}
-                className={activePreset === preset.name ? 'active' : undefined}
+                className={
+                  stylex.props(
+                    styles.presetButton,
+                    activePreset === preset.name && styles.presetActive
+                  ).className
+                }
                 onClick={() => choosePreset(preset)}
               >
                 {preset.name}
               </button>
             ))}
           </div>
-          <p className="panel-note">
+          <p className={stylex.props(styles.panelNote).className}>
             Presets update controls only until the backend connects.
           </p>
         </div>

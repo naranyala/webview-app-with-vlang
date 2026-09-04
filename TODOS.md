@@ -30,14 +30,27 @@ only as a legacy reference until it is archived or removed.
 
 ## Phase 3: Build Real Backend Features
 
-- [ ] Decide where application state should live: in-memory, SQLite, or files.
+- [ ] Decide where application state should live: files-first hybrid is the
+  current direction (JSON documents in the OS data dir, SQLite later only
+  for large ephemeral scan caches).
 - [x] Separate backend configuration, bridge, server, and plugin responsibilities.
 - [ ] Add persistence and migrations if data must survive restarts.
+- [ ] Add a shared `store` module: per-tool JSON documents with atomic
+  temp-file plus rename writes, one mutex per store, and a `version` field
+  per file for migrations.
+- [ ] Resolve OS directories with `os.data_dir()`, `os.config_dir()`, and
+  `os.cache_dir()`; keep all user data outside `frontend-preact/dist` so the
+  static server can never serve it.
+- [ ] Persist Chain Notes through the V backend first, then Todos, keeping
+  localStorage only as an offline fallback with backend-wins conflicts.
+- [ ] Add SQLite later only for disk scan caching and note search, with a
+  `schema_migrations` table from day one.
 - [ ] Add domain models and validation.
 - [ ] Define background-job, cancellation, and progress handling for
   operations that may block the UI.
 - [ ] Add configuration and data-directory handling per operating system.
 - [ ] Add import/export or backup support if user data is involved.
+- [x] Add versioned V-backed JSON storage and CRUD bridge operations for Quiz.
 
 ## Phase 4: Build the Frontend Application
 
@@ -122,8 +135,9 @@ only as a legacy reference until it is archived or removed.
   types, and versioning.
 - [x] Add a production error boundary or fallback screen in the Preact shell.
 - [ ] Add a Content Security Policy and restrict unintended navigation or external content.
-- [ ] Decide whether local notes should persist across launches and choose
-  files, SQLite, or another storage layer.
+- [ ] Decide whether local notes should persist across launches: yes, as
+  versioned JSON documents in the OS data dir (SQLite reserved for later
+  scan caching and search).
 
 ### Disk Scanner Backend
 

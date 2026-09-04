@@ -1,5 +1,6 @@
 import { useState } from 'preact/hooks';
 import { backend, backendError } from './backend.js';
+import { styles, stylex } from './stylex.js';
 
 function isValidCount(value) {
   return typeof value === 'number' && Number.isInteger(value);
@@ -69,11 +70,11 @@ export function BackendStatus({ compact = false }) {
   }
 
   return (
-    <div className="backend-status" aria-live="polite">
-      <span className="backend-status-label">
+    <div {...stylex.props(styles.statusCard)} aria-live="polite">
+      <span {...stylex.props(styles.statusLabel)}>
         Backend{backend.isNative() ? '' : ' (mock)'}
       </span>
-      <span className="backend-status-value">
+      <span {...stylex.props(styles.statusValue)}>
         {[
           systemInfo && `${systemInfo}`,
           status && status,
@@ -84,9 +85,10 @@ export function BackendStatus({ compact = false }) {
           .join(' · ') ||
           (compact ? 'tap Refresh to connect' : 'not connected yet')}
       </span>
-      <span className="backend-status-actions">
+      <span {...stylex.props(styles.statusActions)}>
         <button
           type="button"
+          {...stylex.props(styles.statusAction)}
           disabled={pending}
           onClick={() => runCount(() => backend.increment(1))}
         >
@@ -94,17 +96,23 @@ export function BackendStatus({ compact = false }) {
         </button>
         <button
           type="button"
+          {...stylex.props(styles.statusAction)}
           disabled={pending}
           onClick={() => runCount(() => backend.reset())}
         >
           Reset
         </button>
-        <button type="button" disabled={pending} onClick={refreshAll}>
+        <button
+          type="button"
+          {...stylex.props(styles.statusAction)}
+          disabled={pending}
+          onClick={refreshAll}
+        >
           Refresh
         </button>
       </span>
       {error && (
-        <span className="backend-status-error" role="alert">
+        <span {...stylex.props(styles.statusError)} role="alert">
           {error}
         </span>
       )}

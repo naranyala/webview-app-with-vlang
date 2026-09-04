@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { styles, stylex } from '../stylex.js';
 
 const diskVolumes = [
   {
@@ -68,32 +69,48 @@ export function DiskScanner() {
   }
 
   return (
-    <section className="tool-page">
-      <div className="tool-heading">
+    <section className={stylex.props(styles.toolPage).className}>
+      <div className={stylex.props(styles.toolHeading).className}>
         <div>
-          <p className="eyebrow">Storage</p>
-          <h1>Disk Scanner</h1>
-          <p>Check usage, then scan a volume.</p>
+          <p className={stylex.props(styles.eyebrow).className}>Storage</p>
+          <h1 className={stylex.props(styles.headingTitle).className}>
+            Disk Scanner
+          </h1>
+          <p className={stylex.props(styles.headingText).className}>
+            Check usage, then scan a volume.
+          </p>
         </div>
-        <span className="mock-badge">Mock</span>
+        <span className={stylex.props(styles.mockBadge).className}>Mock</span>
       </div>
 
-      <div className="disk-grid">
-        <div className="tool-panel scan-panel">
-          <div className="panel-heading">
+      <div
+        className={
+          stylex.props(styles.gridTwo, styles.responsiveGrid).className
+        }
+      >
+        <div className={stylex.props(styles.toolPanel).className}>
+          <div className={stylex.props(styles.panelHeading).className}>
             <div>
-              <span className="panel-label">Target</span>
-              <h2>Volume</h2>
+              <span className={stylex.props(styles.panelLabel).className}>
+                Target
+              </span>
+              <h2 className={stylex.props(styles.panelHeadingTitle).className}>
+                Volume
+              </h2>
             </div>
-            <span className="panel-status">
+            <span className={stylex.props(styles.panelStatus).className}>
               {diskScanState === 'complete' ? 'Done' : 'Ready'}
             </span>
           </div>
-          <label className="select-label" htmlFor="volume-select">
+          <label
+            className={stylex.props(styles.selectLabel).className}
+            htmlFor="volume-select"
+          >
             Volume
           </label>
           <select
             id="volume-select"
+            className={stylex.props(styles.select).className}
             value={selectedVolumeId}
             onChange={(event) => setSelectedVolumeId(event.currentTarget.value)}
             disabled={diskScanState === 'scanning'}
@@ -104,19 +121,31 @@ export function DiskScanner() {
               </option>
             ))}
           </select>
-          <div className="volume-summary">
-            <div>
+          <div className={stylex.props(styles.volumeSummary).className}>
+            <div className={stylex.props(styles.volumeCopy).className}>
               <strong>{selectedVolume.used}</strong>
-              <span>of {selectedVolume.total} used</span>
+              <span className={stylex.props(styles.mutedSmall).className}>
+                of {selectedVolume.total} used
+              </span>
             </div>
             <strong>{selectedVolume.percent}%</strong>
           </div>
-          <div className="progress-track" role="img" aria-label="Used storage">
-            <span style={`width: ${selectedVolume.percent}%`} />
+          <div
+            className={stylex.props(styles.progressTrack).className}
+            role="img"
+            aria-label="Used storage"
+          >
+            <span
+              className={stylex.props(styles.progressFill).className}
+              style={`width: ${selectedVolume.percent}%`}
+            />
           </div>
           <button
             type="button"
-            className="primary-button"
+            className={
+              stylex.props(styles.primaryButton, styles.responsiveDesktopButton)
+                .className
+            }
             onClick={startDiskScan}
             disabled={diskScanState === 'scanning'}
           >
@@ -126,31 +155,42 @@ export function DiskScanner() {
                 ? 'Scan again'
                 : 'Start mock scan'}
           </button>
-          <p className="panel-note">Mock data only. No files are read.</p>
+          <p className={stylex.props(styles.panelNote).className}>
+            Mock data only. No files are read.
+          </p>
         </div>
 
-        <div className="tool-panel storage-panel">
-          <div className="panel-heading">
+        <div className={stylex.props(styles.toolPanel).className}>
+          <div className={stylex.props(styles.panelHeading).className}>
             <div>
-              <span className="panel-label">Largest</span>
-              <h2>Folders</h2>
+              <span className={stylex.props(styles.panelLabel).className}>
+                Largest
+              </span>
+              <h2 className={stylex.props(styles.panelHeadingTitle).className}>
+                Folders
+              </h2>
             </div>
-            <span className="scan-time">never</span>
+            <span className={stylex.props(styles.mutedSmall).className}>
+              never
+            </span>
           </div>
-          <div className="folder-list">
+          <div className={stylex.props(styles.folderList).className}>
             {diskFolders.map((folder) => (
-              <div className="folder-row" key={folder.name}>
-                <div className="folder-copy">
+              <div key={folder.name}>
+                <div className={stylex.props(styles.folderCopy).className}>
                   <span>{folder.name}</span>
                   <strong>{folder.size}</strong>
                 </div>
-                <div className="folder-track">
-                  <span style={`width: ${folder.percent}%`} />
+                <div className={stylex.props(styles.folderTrack).className}>
+                  <span
+                    className={stylex.props(styles.folderFill).className}
+                    style={`width: ${folder.percent}%`}
+                  />
                 </div>
               </div>
             ))}
           </div>
-          <div className="storage-footer">
+          <div className={stylex.props(styles.footerRow).className}>
             <span>Free space</span>
             <strong>286 GB</strong>
           </div>

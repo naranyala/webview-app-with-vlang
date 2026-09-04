@@ -4,6 +4,7 @@ import {
   BackendError,
   backendError,
   parseCount,
+  parseQuizPayload,
   unwrapBridge
 } from './backend.js';
 
@@ -38,6 +39,22 @@ describe('parseCount', () => {
     assert.throws(() => parseCount('abc'), BackendError);
     assert.throws(() => parseCount(1.5), BackendError);
     assert.throws(() => parseCount(Number.NaN), BackendError);
+  });
+});
+
+describe('parseQuizPayload', () => {
+  it('unwraps and parses structured quiz data', () => {
+    assert.deepEqual(
+      parseQuizPayload('{"ok":true,"data":"[{\\"id\\":\\"deck-1\\"}]"}'),
+      [{ id: 'deck-1' }]
+    );
+  });
+
+  it('rejects malformed structured quiz data', () => {
+    assert.throws(
+      () => parseQuizPayload('{"ok":true,"data":"broken"}'),
+      BackendError
+    );
   });
 });
 

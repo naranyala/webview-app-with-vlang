@@ -1,38 +1,38 @@
-# Preact + esbuild
+# Canonical Preact Frontend
 
-TodoMVC demo built with Preact and esbuild directly. Tailwind CSS is processed
-by a custom esbuild plugin through PostCSS.
+This directory contains the current frontend for the V WebView application. It
+uses Preact, esbuild, and StyleX and produces the single-file asset served by
+the native V process. The Svelte application in `../ui/` is retained only as a
+legacy reference.
 
 ## Commands
 
-```bash
-npm install
-npm run dev
+```sh
+npm ci --no-bin-links
+npm run dev          # check, build, and serve on http://localhost:3000
+npm run check        # Biome checks
+npm test             # Node test suite
+npm run build        # generated frontend-preact/dist/index.html
 ```
 
-Open <http://localhost:3000> while the development server is running.
+Additional scripts compare note search and PDF renderers:
 
-Biome is included in the development loop:
-
-```bash
-npm run check          # lint and format check
-npm run format         # format source files
-npm run check:write    # apply safe Biome fixes
+```sh
+npm run bench:notes-search
+npm run bench:notes-pdf
 ```
 
-`npm run build` runs `npm run check` before creating production assets.
+`npm run build` runs the check command before invoking `build.js`. The build
+uses the StyleX esbuild plugin and inlines generated CSS and JavaScript into
+`dist/index.html` through `plugins/single-file-html.js`.
 
-The demo supports adding todos, completing and deleting them, double-clicking
-to edit, toggling all todos, URL-hash filters for all/active/completed, clear
-completed, and local storage persistence.
+## Tools
 
-For a production bundle:
+The Preact registry currently contains Disk Scanner, Audio Equalizer, Chain
+Notes, Todos, Quiz, and Academic Paper. Disk Scanner and Audio Equalizer are
+UI prototypes with mock data. Quiz uses the V bridge in the native shell and a
+browser fallback during development. Chain Notes, Todos, and Academic Paper
+keep their current data in browser `localStorage`.
 
-```bash
-npm run build
-```
-
-The bundled files are written to `public/assets/`.
-
-The build also creates `dist/index.html`, a single self-contained HTML file
-with the generated CSS and JavaScript inlined.
+See the repository documentation for the complete runtime, bridge, storage,
+and release model: [`../docs/`](../docs/).

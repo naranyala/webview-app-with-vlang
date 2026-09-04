@@ -25,7 +25,14 @@ const NATIVE_BINDINGS = [
   'minimize_window',
   'maximize_window',
   'restore_window',
-  'close_window'
+  'close_window',
+  'quiz_list',
+  'quiz_create_collection',
+  'quiz_update_collection',
+  'quiz_delete_collection',
+  'quiz_create_question',
+  'quiz_update_question',
+  'quiz_delete_question'
 ];
 
 export class BackendError extends Error {
@@ -135,6 +142,31 @@ export function parseCount(raw, binding = 'counter') {
   return value;
 }
 
+export function parseQuizPayload(raw, binding = 'quiz') {
+  const value = unwrapBridge(raw, binding);
+  if (typeof value !== 'string') return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    throw new BackendError(`Invalid quiz payload received from ${binding}`, {
+      code: 'backend_invalid_payload',
+      binding
+    });
+  }
+}
+
+function callQuizBinding(name, payload) {
+  if (!hasBinding(name)) return Promise.resolve(undefined);
+  return callBinding(name, JSON.stringify(payload)).then((raw) =>
+    parseQuizPayload(raw, name)
+  );
+}
+
+function callQuizIdBinding(name, id) {
+  if (!hasBinding(name)) return Promise.resolve(undefined);
+  return callBinding(name, id).then((raw) => parseQuizPayload(raw, name));
+}
+
 // Local fallback counter keeps browser development usable when V bindings are
 // unavailable. Native calls use the V-owned counter above this fallback.
 let localCount = 0;
@@ -189,6 +221,21 @@ export const backend = {
     }
     return callBinding('getStatus');
   },
+  quizList: async () => {
+    if (!hasBinding('quiz_list')) return undefined;
+    return parseQuizPayload(await callBinding('quiz_list'), 'quiz_list');
+  },
+  quizCreateCollection: (collection) =>
+    callQuizBinding('quiz_create_collection', collection),
+  quizUpdateCollection: (collection) =>
+    callQuizBinding('quiz_update_collection', collection),
+  quizDeleteCollection: (id) => callQuizIdBinding('quiz_delete_collection', id),
+  quizCreateQuestion: (question) =>
+    callQuizBinding('quiz_create_question', question),
+  quizUpdateQuestion: (question) =>
+    callQuizBinding('quiz_update_question', question),
+  quizDeleteQuestion: (question) =>
+    callQuizBinding('quiz_delete_question', question),
   minimizeWindow: () =>
     callBinding('minimize_window').then((raw) =>
       unwrapBridge(raw, 'minimize_window')
