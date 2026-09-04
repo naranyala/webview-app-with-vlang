@@ -8,6 +8,7 @@ struct App {
 mut:
 	window  webview.Webview
 	counter CounterState
+	notes   NoteStore
 	quiz    QuizStore
 }
 
@@ -17,8 +18,13 @@ fn main() {
 		eprintln('Quiz storage initialization failed: ${err}')
 		return
 	}
+	note_store := new_note_store() or {
+		eprintln('Note storage initialization failed: ${err}')
+		return
+	}
 	mut app := App{
 		window: webview.create(debug: config.debug)
+		notes:  note_store
 		quiz:   quiz_store
 	}
 	app.bind()

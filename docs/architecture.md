@@ -13,6 +13,7 @@ webview-app
 
 frontend-preact
   ├─ Preact shell and plugin registry
+  ├─ versioned Dexie storage for browser-local tools
   ├─ browser-compatible mocks for development
   └─ generated single-file dist/index.html
 ```
@@ -47,11 +48,17 @@ small plugin contract in `src/plugins/contract.js` validates each manifest;
 - Disk Scanner: mock storage data and a simulated scan.
 - Audio Equalizer: local sliders, presets, and visualizer prototype.
 - Chain Notes: local Q&A notebook with search and export.
-- Todos: local task list with filters and hash navigation.
+- Todos: local task list with filters, due dates, hash navigation, and a monthly
+  calendar workspace.
 - Quiz: study sessions and collection/question editor using the native bridge
   when available.
 - Academic Paper: local paper reader, Reference Manager, Image Assets, and
   two-column PDF/print output.
+
+Todos, Chain Notes, and Academic Papers use the version-1 Dexie adapter in
+`src/storage.mjs`. Quiz remains in the V-backed JSON store. The adapter retains
+a one-time raw `localStorage` migration backup and falls back to `localStorage`
+when IndexedDB is unavailable.
 
 Component styles are authored in `src/stylex.js`. `build.js` runs esbuild with
 the StyleX plugin and the single-file plugin, producing a self-contained

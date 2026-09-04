@@ -230,6 +230,39 @@ export const styles = stylex.create({
   panelRowActive: {
     borderColor: '#f7c66b'
   },
+  compactPanelRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    width: '100%',
+    minHeight: 46,
+    padding: '7px 8px',
+    border: '1px solid transparent',
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.025)',
+    color: '#f2f3f5',
+    textAlign: 'left',
+    ':hover': {
+      borderColor: 'rgba(247,198,107,0.5)',
+      backgroundColor: 'rgba(255,255,255,0.06)'
+    }
+  },
+  compactPanelRowActive: {
+    borderColor: '#f7c66b',
+    backgroundColor: 'rgba(247,198,107,0.08)'
+  },
+  compactPanelGlyph: {
+    display: 'grid',
+    flex: '0 0 28px',
+    placeItems: 'center',
+    width: 28,
+    height: 28,
+    borderRadius: 7,
+    backgroundColor: 'rgba(247,198,107,0.12)',
+    color: '#f7c66b',
+    fontSize: 13,
+    fontWeight: 800
+  },
   rowGlyph: {
     display: 'grid',
     flex: '0 0 38px',
@@ -1042,6 +1075,18 @@ export const styles = stylex.create({
     color: '#123c32',
     fontSize: 16
   },
+  todoDateInput: {
+    flex: '0 0 auto',
+    width: 122,
+    minHeight: 32,
+    padding: '5px 7px',
+    border: '1px solid rgba(18,60,50,0.12)',
+    borderRadius: 6,
+    outline: 0,
+    backgroundColor: '#f8fbf4',
+    color: 'rgba(18,60,50,0.7)',
+    fontSize: 11
+  },
   todoItem: {
     padding: '12px 16px',
     borderBottom: '1px solid rgba(18,60,50,0.1)'
@@ -1168,6 +1213,210 @@ export const styles = stylex.create({
     letterSpacing: '0.16em',
     textAlign: 'center',
     textTransform: 'uppercase'
+  },
+  todoCalendar: {
+    width: '100%',
+    maxWidth: 820,
+    margin: '0 auto',
+    padding: 18,
+    border: '1px solid rgba(18,60,50,0.1)',
+    borderRadius: 20,
+    backgroundColor: '#ffffff',
+    boxShadow: '0 12px 40px rgba(20,66,54,0.14)'
+  },
+  calendarHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 16
+  },
+  calendarTitle: {
+    margin: 0,
+    color: '#123c32',
+    fontSize: 25,
+    letterSpacing: '-0.04em'
+  },
+  calendarControls: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 4
+  },
+  calendarArrow: {
+    display: 'grid',
+    placeItems: 'center',
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    backgroundColor: 'transparent',
+    color: '#123c32',
+    fontSize: 21,
+    ':hover': {
+      backgroundColor: '#eef9c9'
+    }
+  },
+  calendarToday: {
+    minHeight: 32,
+    padding: '5px 8px',
+    borderRadius: 7,
+    backgroundColor: '#eef9c9',
+    color: '#123c32',
+    fontSize: 11,
+    fontWeight: 700
+  },
+  calendarWeekdays: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
+    gap: 5,
+    marginBottom: 5,
+    color: 'rgba(18,60,50,0.46)',
+    fontSize: 10,
+    fontWeight: 800,
+    letterSpacing: '0.08em',
+    textAlign: 'center',
+    textTransform: 'uppercase'
+  },
+  calendarGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
+    gap: 5
+  },
+  calendarDay: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    minHeight: 68,
+    padding: 7,
+    border: '1px solid rgba(18,60,50,0.1)',
+    borderRadius: 8,
+    backgroundColor: '#fbfdf9',
+    color: '#123c32',
+    fontSize: 12,
+    textAlign: 'left',
+    ':hover': {
+      borderColor: '#a3d72e',
+      backgroundColor: '#f1fbdc'
+    }
+  },
+  calendarDayOutside: {
+    opacity: 0.38
+  },
+  calendarDaySelected: {
+    borderColor: '#123c32',
+    backgroundColor: '#123c32',
+    color: '#ffffff'
+  },
+  calendarDayToday: {
+    borderColor: '#d2644e',
+    boxShadow: 'inset 0 0 0 1px #d2644e'
+  },
+  calendarDayCount: {
+    alignSelf: 'flex-end',
+    display: 'grid',
+    placeItems: 'center',
+    minWidth: 17,
+    height: 17,
+    padding: '0 4px',
+    borderRadius: 9,
+    backgroundColor: '#a3d72e',
+    color: '#123c32',
+    fontSize: 9,
+    fontWeight: 800
+  },
+  calendarDayHeader: {
+    display: 'flex',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginTop: 20,
+    paddingTop: 15,
+    borderTop: '1px solid rgba(18,60,50,0.1)',
+    color: 'rgba(18,60,50,0.58)',
+    fontSize: 11
+  },
+  calendarDayHeaderTitle: {
+    margin: 0,
+    color: '#123c32',
+    fontSize: 17
+  },
+  calendarAddForm: {
+    display: 'flex',
+    gap: 7,
+    marginTop: 12
+  },
+  calendarAddInput: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 38,
+    padding: '7px 9px',
+    border: '1px solid rgba(18,60,50,0.13)',
+    borderRadius: 7,
+    outline: 0,
+    backgroundColor: '#fbfdf9',
+    color: '#123c32',
+    fontSize: 12
+  },
+  calendarAddButton: {
+    minHeight: 38,
+    padding: '7px 12px',
+    borderRadius: 7,
+    backgroundColor: '#a3d72e',
+    color: '#123c32',
+    fontSize: 11,
+    fontWeight: 800
+  },
+  calendarTodoList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 5,
+    margin: '12px 0 0',
+    padding: 0,
+    listStyle: 'none'
+  },
+  calendarTodo: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    padding: '8px 9px',
+    borderRadius: 7,
+    backgroundColor: '#f1fbdc',
+    color: '#123c32',
+    fontSize: 12
+  },
+  calendarCheckbox: {
+    width: 16,
+    height: 16,
+    margin: 0,
+    accentColor: '#2f8060'
+  },
+  calendarTodoTitle: {
+    flex: 1,
+    minWidth: 0,
+    overflowWrap: 'anywhere'
+  },
+  calendarTodoCompleted: {
+    opacity: 0.48,
+    textDecorationLine: 'line-through'
+  },
+  calendarDelete: {
+    padding: '3px 5px',
+    borderRadius: 5,
+    backgroundColor: 'transparent',
+    color: 'rgba(18,60,50,0.35)',
+    fontSize: 16,
+    lineHeight: 1,
+    ':hover': {
+      backgroundColor: '#ffe8e4',
+      color: '#d94e4e'
+    }
+  },
+  calendarEmpty: {
+    margin: '12px 0 0',
+    padding: '16px 9px',
+    color: 'rgba(18,60,50,0.48)',
+    fontSize: 12,
+    textAlign: 'center'
   },
   academicPage: {
     width: '100%',

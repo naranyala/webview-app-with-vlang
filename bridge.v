@@ -1,6 +1,7 @@
 module main
 
 import json
+import encoding.base64
 import os
 import sync
 import time
@@ -19,6 +20,7 @@ struct BridgeResponse {
 	ok    bool
 	data  string
 	error string
+	code  string
 }
 
 const max_greet_len = 1000
@@ -32,9 +34,14 @@ fn bridge_success(data string) string {
 }
 
 fn bridge_failure(message string) string {
+	return bridge_failure_code('BackendError', message)
+}
+
+fn bridge_failure_code(code string, message string) string {
 	return json.encode(BridgeResponse{
 		ok:    false
 		error: message
+		code:  code
 	})
 }
 
@@ -64,6 +71,11 @@ fn register_core_bridge(mut app App) {
 	app.window.bind('get_time', get_time)
 	app.window.bind('get_system_info', get_system_info)
 	app.window.bind('get_status', get_status)
+	app.window.bind('get_notes', app.get_notes)
+	app.window.bind('create_note', app.create_note)
+	app.window.bind('update_note', app.update_note)
+	app.window.bind('delete_note', app.delete_note)
+	app.window.bind('save_pdf', save_pdf)
 	app.window.bind('increment', app.increment)
 	app.window.bind('reset', app.reset)
 	app.window.bind('minimize_window', app.minimize_window)
@@ -77,6 +89,109 @@ fn register_core_bridge(mut app App) {
 	app.window.bind('quiz_create_question', app.quiz_create_question)
 	app.window.bind('quiz_update_question', app.quiz_update_question)
 	app.window.bind('quiz_delete_question', app.quiz_delete_question)
+}
+
+fn (mut app App) get_notes(_ &webview.Event) string {
+	notes := app.notes.list() or {
+		log_bridge_error('get_notes', err.msg())
+		return bridge_failure_code('StorageReadFailed', err.msg())
+	}
+	return bridge_success(json.encode(notes))
+}
+
+fn (mut app App) create_note(e &webview.Event) string {
+	title := e.get_arg[string](0) or { return bridge_failure_code('InvalidArgument', 'Note title is required') }
+	tag := e.get_arg[string](1) or { return bridge_failure_code('InvalidArgument', 'Note tag is required') }
+	body := e.get_arg[string](2) or { return bridge_failure_code('InvalidArgument', 'Note body is required') }
+	note := app.notes.create(NoteInput{title: title, tag: tag, body: body}) or {
+		log_bridge_error('create_note', err.msg())
+		return bridge_failure_code('StorageWriteFailed', err.msg())
+	}
+	return bridge_success(json.encode(note))
+}
+
+fn (mut app App) update_note(e &webview.Event) string {
+	id := e.get_arg[string](0) or { return bridge_failure_code('InvalidArgument', 'Note id is required') }
+	title := e.get_arg[string](1) or { return bridge_failure_code('InvalidArgument', 'Note title is required') }
+	tag := e.get_arg[string](2) or { return bridge_failure_code('InvalidArgument', 'Note tag is required') }
+	body := e.get_arg[string](3) or { return bridge_failure_code('InvalidArgument', 'Note body is required') }
+	note := app.notes.update(UpdateNoteInput{id: id, title: title, tag: tag, body: body}) or {
+		log_bridge_error('update_note', err.msg())
+		return bridge_failure_code('StorageWriteFailed', err.msg())
+	}
+	return bridge_success(json.encode(note))
+}
+
+fn (mut app App) delete_note(e &webview.Event) string {
+	id := e.get_arg[string](0) or { return bridge_failure_code('InvalidArgument', 'Note id is required') }
+	app.notes.delete(id) or {
+		log_bridge_error('delete_note', err.msg())
+		return bridge_failure_code('StorageWriteFailed', err.msg())
+	}
+	return bridge_success('Note deleted')
+}
+
+const max_pdf_filename_len = 100
+const max_pdf_base64_len = 22_400_000
+const max_pdf_bytes = 16 * 1024 * 1024
+
+fn valid_pdf_filename(name string) bool {
+	if name.len < 5 || name.len > max_pdf_filename_len || !name.ends_with('.pdf') {
+		return false
+	}
+	for index, character in name.bytes() {
+		if index == 0 && !character.is_alnum() {
+			return false
+		}
+		if !character.is_alnum() && character != `.` && character != `_` && character != `-` {
+			return false
+		}
+	}
+	return true
+}
+
+fn documents_dir() !string {
+	home := if os.user_os() == 'windows' { os.getenv('USERPROFILE') } else { os.getenv('HOME') }
+	if home.len == 0 {
+		return error('Documents folder is unavailable')
+	}
+	return os.join_path(home, 'Documents')
+}
+
+fn save_pdf(e &webview.Event) string {
+	filename := e.get_arg[string](0) or { return bridge_failure_code('InvalidArgument', 'PDF filename is required') }
+	content := e.get_arg[string](1) or { return bridge_failure_code('InvalidArgument', 'PDF content is required') }
+	if !valid_pdf_filename(filename) {
+		return bridge_failure_code('InvalidPdfName', 'PDF filename is invalid')
+	}
+	if content.len == 0 || content.len > max_pdf_base64_len {
+		return bridge_failure_code('PdfTooLarge', 'PDF is too large')
+	}
+	decoded := base64.decode(content)
+	if decoded.len == 0 || decoded.len > max_pdf_bytes {
+		return bridge_failure_code('PdfDecodeFailed', 'PDF data could not be decoded')
+	}
+	dir := documents_dir() or { return bridge_failure_code('DocumentsUnavailable', err.msg()) }
+	os.mkdir_all(dir) or { return bridge_failure_code('DocumentsUnavailable', err.msg()) }
+	mut path := os.join_path(dir, filename)
+	mut suffix := 2
+	for os.exists(path) && suffix <= 1000 {
+		stem := filename[..filename.len - 4]
+		path = os.join_path(dir, '${stem}-${suffix}.pdf')
+		suffix++
+	}
+	if os.exists(path) {
+		return bridge_failure_code('PdfWriteFailed', 'Could not choose a PDF filename')
+	}
+	temporary_path := '${path}.tmp'
+	os.write_file(temporary_path, decoded.bytestr()) or {
+		return bridge_failure_code('PdfWriteFailed', 'PDF could not be written')
+	}
+	os.rename(temporary_path, path) or {
+		os.rm(temporary_path) or {}
+		return bridge_failure_code('PdfWriteFailed', 'PDF could not be written')
+	}
+	return bridge_success(json.encode({'path': path}))
 }
 
 fn (mut app App) quiz_list(_ &webview.Event) string {

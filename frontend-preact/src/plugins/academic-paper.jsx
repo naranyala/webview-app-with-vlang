@@ -1,12 +1,18 @@
 import { useEffect, useState } from 'preact/hooks';
+import { loadAcademicPapers } from '../academic-paper-model.mjs';
 import {
-  loadAcademicPapers,
-  saveAcademicPapers
-} from '../academic-paper-model.mjs';
-import {
+  academicPaperPdfFileName,
   exportAcademicPaperAsPdf,
+  generateAcademicPaperPdfBytes,
   printAcademicPaperInSystemDialog
 } from '../academic-paper-pdf.mjs';
+import { backend } from '../backend.js';
+import { pdfBytesToBase64 } from '../note-pdf.mjs';
+import { paperStats, resolvePaperCitations } from '../paper-tools.mjs';
+import {
+  loadAcademicPapersFromStorage,
+  saveAcademicPapersToStorage
+} from '../storage.mjs';
 import { styles, stylex } from '../stylex.js';
 
 function countPaperWords(paper) {
@@ -348,18 +354,40 @@ export function AcademicPaper({ paperView }) {
     locator: ''
   });
   const [storageError, setStorageError] = useState('');
+  const [storageReady, setStorageReady] = useState(false);
   const [assetError, setAssetError] = useState('');
   const [exportError, setExportError] = useState('');
   const [exporting, setExporting] = useState(false);
   const paper = papers.find((item) => item.id === activePaperId) ?? papers[0];
 
   useEffect(() => {
-    setStorageError(
-      saveAcademicPapers(papers)
-        ? ''
-        : 'Local paper changes could not be saved in this browser.'
-    );
-  }, [papers]);
+    let active = true;
+    loadAcademicPapersFromStorage().then((stored) => {
+      if (!active) return;
+      if (stored !== null) {
+        setPapers(stored);
+        setActivePaperId(stored[0]?.id ?? null);
+      }
+      setStorageReady(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!storageReady) return;
+    let active = true;
+    saveAcademicPapersToStorage(papers).then((saved) => {
+      if (!active) return;
+      setStorageError(
+        saved ? '' : 'Local paper changes could not be saved in this browser.'
+      );
+    });
+    return () => {
+      active = false;
+    };
+  }, [papers, storageReady]);
 
   useEffect(() => {
     if (paperView) setWorkspaceView(paperView);
@@ -377,12 +405,24 @@ export function AcademicPaper({ paperView }) {
     );
   }
 
+  const citationResolution = resolvePaperCitations(paper);
+  const displayPaper = citationResolution.paper;
+  const paperStatistics = paperStats(paper);
+
   async function exportPaper() {
     if (exporting) return;
     setExporting(true);
     setExportError('');
     try {
-      await exportAcademicPaperAsPdf(paper);
+      if (backend.hasNativeBinding('save_pdf')) {
+        const bytes = await generateAcademicPaperPdfBytes(displayPaper);
+        await backend.savePdf(
+          academicPaperPdfFileName(paper.title),
+          pdfBytesToBase64(bytes)
+        );
+      } else {
+        await exportAcademicPaperAsPdf(displayPaper);
+      }
     } catch {
       setExportError('The PDF export could not be created in this browser.');
     } finally {
@@ -495,7 +535,7 @@ export function AcademicPaper({ paperView }) {
     }));
   }
 
-  const wordCount = countPaperWords(paper);
+  const wordCount = paperStatistics.words || countPaperWords(paper);
   const authorNames = paper.authors.map((author) => author.name).join(', ');
 
   return (
@@ -638,7 +678,7 @@ export function AcademicPaper({ paperView }) {
               >
                 Abstract
               </button>
-              {paper.sections.map((section) => (
+              {displayPaper.sections.map((section) => (
                 <button
                   type="button"
                   key={section.id}
@@ -713,8 +753,13 @@ export function AcademicPaper({ paperView }) {
             >
               <h3 {...stylex.props(styles.paperAbstractHeading)}>Abstract</h3>
               <p {...stylex.props(styles.paperAbstractText)}>
-                {paper.abstract || 'No abstract has been added.'}
+                {displayPaper.abstract || 'No abstract has been added.'}
               </p>
+              {citationResolution.missing.length > 0 && (
+                <p {...stylex.props(styles.error)} role="alert">
+                  Missing references: {citationResolution.missing.join(', ')}
+                </p>
+              )}
               {paper.keywords.length > 0 && (
                 <p {...stylex.props(styles.paperKeywords)}>
                   <strong>Keywords</strong> {paper.keywords.join(' / ')}
@@ -728,7 +773,7 @@ export function AcademicPaper({ paperView }) {
                 styles.responsivePaperColumns
               )}
             >
-              {paper.sections.map((section) => (
+              {displayPaper.sections.map((section) => (
                 <section
                   {...stylex.props(styles.paperSection)}
                   id={`paper-section-${section.id}`}
@@ -748,7 +793,7 @@ export function AcademicPaper({ paperView }) {
                   <h3 {...stylex.props(styles.paperSectionTitle)}>
                     References
                   </h3>
-                  {paper.references.map((reference) => (
+                  {citationResolution.references.map((reference) => (
                     <p
                       {...stylex.props(styles.paperReference)}
                       key={reference.id}

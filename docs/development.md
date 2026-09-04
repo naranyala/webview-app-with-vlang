@@ -55,9 +55,26 @@ The command runs:
 - `v test quiz_storage_test.v`
 
 The frontend test suite covers bridge parsing, fuzzy search, and Academic Paper
-model normalization. Backend tests cover bridge validation/serialization,
-plugin registration, static-server behavior, traversal protection, and Quiz
-storage CRUD.
+model normalization, IndexedDB migration, and Blob asset persistence. Backend
+tests cover bridge validation/serialization, plugin registration, static-server
+behavior, traversal protection, and Quiz storage CRUD.
+
+## Dependency Decisions
+
+The first runtime validation dependency is `zod@^4.5.4`. It is used by
+`frontend-preact/src/schemas.mjs` to normalize browser-persisted Todos, Chain
+Notes, Academic Papers, and Quiz bridge payloads. It has no native dependency
+and is compatible with the esbuild single-file frontend. The frontend schemas
+discard malformed records for recovery, but V-side validation remains the
+authority for native writes.
+
+`dexie@^4.4.5` is used by `frontend-preact/src/storage.mjs` for the version-1
+`webview-app` IndexedDB database. It is Apache-2.0, has no native dependency or
+network behavior, and keeps Quiz in the separate V-backed JSON store. The
+current generated single-file build is 2,351,213 bytes; that size includes the
+existing PDF dependencies and is recorded as a baseline for future bundle
+measurement. `fake-indexeddb@^6.2.5` is dev-only test infrastructure and is not
+bundled.
 
 ## Build Output
 

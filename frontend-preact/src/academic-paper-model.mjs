@@ -1,3 +1,5 @@
+import { parseAcademicPaper } from './schemas.mjs';
+
 export const ACADEMIC_PAPERS_STORAGE_KEY = 'webview-app.academic-papers';
 
 export const starterPapers = [
@@ -124,99 +126,8 @@ export const starterPapers = [
   }
 ];
 
-function isString(value) {
-  return typeof value === 'string';
-}
-
-function normalizeBlock(block) {
-  if (!block || !isString(block.type)) return null;
-  if (block.type === 'list' && Array.isArray(block.items)) {
-    return {
-      type: 'list',
-      items: block.items.filter(isString)
-    };
-  }
-  if (['paragraph', 'quote'].includes(block.type) && isString(block.text)) {
-    return { type: block.type, text: block.text };
-  }
-  if (block.type === 'code' && isString(block.code)) {
-    return {
-      type: 'code',
-      language: isString(block.language) ? block.language : 'code',
-      code: block.code
-    };
-  }
-  return null;
-}
-
 export function normalizeAcademicPaper(value) {
-  if (!value || !isString(value.id) || !isString(value.title)) return null;
-  const sections = Array.isArray(value.sections)
-    ? value.sections
-        .filter(
-          (section) =>
-            section && isString(section.id) && isString(section.heading)
-        )
-        .map((section) => ({
-          id: section.id,
-          heading: section.heading,
-          blocks: Array.isArray(section.blocks)
-            ? section.blocks.map(normalizeBlock).filter(Boolean)
-            : []
-        }))
-    : [];
-
-  return {
-    id: value.id,
-    title: value.title,
-    subtitle: isString(value.subtitle) ? value.subtitle : '',
-    authors: Array.isArray(value.authors)
-      ? value.authors.filter((author) => author && isString(author.name))
-      : [],
-    venue: isString(value.venue) ? value.venue : '',
-    year: isString(value.year) ? value.year : '',
-    abstract: isString(value.abstract) ? value.abstract : '',
-    keywords: Array.isArray(value.keywords)
-      ? value.keywords.filter(isString)
-      : [],
-    sections,
-    references: Array.isArray(value.references)
-      ? value.references
-          .filter(
-            (reference) =>
-              reference && isString(reference.label) && isString(reference.text)
-          )
-          .map((reference) => ({
-            id: reference.id || reference.label,
-            label: reference.label,
-            authors: isString(reference.authors) ? reference.authors : '',
-            year: isString(reference.year) ? reference.year : '',
-            title: isString(reference.title) ? reference.title : '',
-            type: isString(reference.type) ? reference.type : 'Other',
-            doi: isString(reference.doi) ? reference.doi : '',
-            url: isString(reference.url) ? reference.url : '',
-            text: reference.text
-          }))
-      : [],
-    assets: Array.isArray(value.assets)
-      ? value.assets
-          .filter(
-            (asset) =>
-              asset &&
-              isString(asset.id) &&
-              isString(asset.name) &&
-              isString(asset.src)
-          )
-          .map((asset) => ({
-            id: asset.id,
-            name: asset.name,
-            type: isString(asset.type) ? asset.type : 'image',
-            src: asset.src,
-            alt: isString(asset.alt) ? asset.alt : asset.name,
-            caption: isString(asset.caption) ? asset.caption : ''
-          }))
-      : []
-  };
+  return parseAcademicPaper(value);
 }
 
 export function loadAcademicPapers() {

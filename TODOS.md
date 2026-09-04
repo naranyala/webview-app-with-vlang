@@ -3,6 +3,92 @@
 The active frontend is `frontend-preact/`. The `ui/` Svelte application is kept
 only as a legacy reference until it is archived or removed.
 
+## Third-Party Dependency Adoption Plan
+
+The project should add dependencies only when they remove a concrete reliability
+or capability gap. Every addition must support the Preact/esbuild single-file
+build, preserve browser development without the native shell, have a compatible
+license, and be covered by a focused test or benchmark.
+
+### Phase 1: Validate and Test the Existing Local-First Core
+
+- [x] Add `zod` for runtime validation of persisted frontend documents and
+  bridge-facing payloads.
+- [x] Centralize schemas for Todos, Chain Notes, Academic Papers, and Quiz
+  payloads instead of duplicating ad hoc field checks.
+- [x] Keep V-side validation authoritative for native Quiz writes; frontend
+  schemas must not be treated as a security boundary.
+- [x] Add migration-safe parsing tests for missing, malformed, and legacy fields.
+- [ ] Add `@testing-library/preact`, `@testing-library/dom`, and `vitest` only
+  after the first component interaction needs DOM coverage.
+- [ ] Cover Todo Calendar, Paper submenu navigation, Reference Manager, and
+  export error states with component tests.
+
+### Phase 2: Replace Browser Storage with IndexedDB
+
+- [x] Add `dexie` for transactional browser storage of Todos, Chain Notes,
+  Academic Papers, references, and image asset metadata.
+- [x] Define one database name, schema version, table indexes, and upgrade
+  handlers in a dedicated frontend storage module.
+- [x] Migrate existing `localStorage` records once and keep an explicit import
+  backup until migration is verified.
+- [x] Store image binary data as `Blob` values rather than base64 data URLs.
+- [ ] Add quota, corruption, and migration failure states to the UI.
+- [x] Keep the V-backed Quiz JSON store separate until a deliberate backend
+  storage unification is implemented.
+
+### Phase 3: Make Research Content Safe and Useful
+
+- [ ] Add `DOMPurify` and a strict allowlist before rendering any generated or
+  imported HTML.
+- [ ] Add `marked` or `micromark` for Markdown rendering only after sanitization
+  is in place.
+- [ ] Add `Citation.js` for BibTeX, CSL, and DOI import/export in Reference
+  Manager.
+- [ ] Add `browser-image-compression` for client-side figure resizing before
+  IndexedDB storage.
+- [ ] Add `fflate` for local backup/import archives containing all frontend data.
+- [ ] Add `pdfjs-dist` only when imported PDF preview/text extraction is required.
+- [ ] Add `pdf-lib` only when merging assets, metadata, or multiple PDFs is
+  required beyond the existing print/html2pdf path.
+
+### Phase 4: Implement Native Capabilities
+
+- [ ] Add `ttytm/dialog` for cross-platform file, directory, save, and message
+  dialogs.
+- [ ] Add `larpon/miniaudio` only when Audio Equalizer scope becomes a real local
+  player; verify native build requirements on every target platform.
+- [ ] Add `vsl`/FFT support only when real audio analysis or signal processing
+  is implemented.
+- [ ] Add `v-mime` for authoritative native file-type detection when imports
+  move into V.
+- [ ] Add a file watcher such as `vmon` only for an explicit watched-directory
+  workflow.
+- [ ] Prefer V's built-in `db.sqlite` over a third-party ORM; add `vsql` only if
+  query composition becomes a demonstrated maintenance problem.
+
+### Phase 5: Performance and Product Polish
+
+- [ ] Add `@preact/signals` only when state must be shared across independent
+  plugin surfaces.
+- [ ] Add `@tanstack/virtual-core` only after a measured large-library rendering
+  bottleneck appears.
+- [ ] Add `lucide-preact` if the current text glyph controls cannot meet icon,
+  consistency, or accessibility needs.
+- [ ] Add `@floating-ui/dom` only for tooltips, popovers, or menus that exceed
+  native flow layout.
+
+### Dependency Review Checklist
+
+- [ ] Record package version, license, bundle-size impact, native dependencies,
+  and reason for adoption in the relevant documentation.
+- [x] Run `npm ci --no-bin-links`, frontend checks, frontend tests, and the
+  production single-file build after every dependency change.
+- [x] Verify that the dependency does not access the network or weaken the
+  local-first privacy model without an explicit product decision.
+- [ ] Remove a dependency if a small local implementation is clearer, smaller,
+  or more reliable for the current scope.
+
 ## Phase 1: Stabilize Foundation
 
 - [x] Add a backend configuration layer for ports, dev mode, window size, and debug logging.

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   BackendError,
+  backend,
   backendError,
   parseCount,
   parseQuizPayload,
@@ -23,9 +24,49 @@ describe('unwrapBridge', () => {
     );
   });
 
+  it('preserves stable backend error codes', () => {
+    assert.throws(
+      () => unwrapBridge('{"ok":false,"code":"StorageCorrupt","error":"bad"}'),
+      (error) => error.code === 'StorageCorrupt'
+    );
+  });
+
   it('passes through plain strings and non-bridge values', () => {
     assert.equal(unwrapBridge('plain', 'get_time'), 'plain');
     assert.equal(unwrapBridge(42, 'get_time'), 42);
+  });
+});
+
+describe('native note adapter', () => {
+  it('converts the canonical native body into the editor shape', async () => {
+    globalThis.window = {
+      get_notes: () =>
+        Promise.resolve(
+          JSON.stringify({
+            ok: true,
+            data: JSON.stringify([
+              {
+                id: 'note-1',
+                title: 'Native note',
+                tag: 'Research',
+                updated: 'Just now',
+                body: 'Question:\nWhat?\n\nAnswer:\nThis.'
+              }
+            ])
+          })
+        )
+    };
+    assert.deepEqual(await backend.getNotes(), [
+      {
+        id: 'note-1',
+        title: 'Native note',
+        tag: 'Research',
+        updated: 'Just now',
+        question: 'What?',
+        answer: 'This.'
+      }
+    ]);
+    delete globalThis.window;
   });
 });
 
@@ -45,8 +86,19 @@ describe('parseCount', () => {
 describe('parseQuizPayload', () => {
   it('unwraps and parses structured quiz data', () => {
     assert.deepEqual(
-      parseQuizPayload('{"ok":true,"data":"[{\\"id\\":\\"deck-1\\"}]"}'),
-      [{ id: 'deck-1' }]
+      parseQuizPayload(
+        '{"ok":true,"data":"[{\\"id\\":\\"deck-1\\",\\"title\\":\\"Deck\\",\\"description\\":\\"Study\\",\\"tone\\":\\"blue\\",\\"level\\":\\"Beginner\\",\\"questions\\":[]}]"}'
+      ),
+      [
+        {
+          id: 'deck-1',
+          title: 'Deck',
+          description: 'Study',
+          tone: 'blue',
+          level: 'Beginner',
+          questions: []
+        }
+      ]
     );
   });
 
@@ -54,6 +106,16 @@ describe('parseQuizPayload', () => {
     assert.throws(
       () => parseQuizPayload('{"ok":true,"data":"broken"}'),
       BackendError
+    );
+  });
+
+  it('accepts plain status strings from delete bindings', () => {
+    assert.equal(
+      parseQuizPayload(
+        '{"ok":true,"data":"Quiz collection deleted"}',
+        'quiz_delete_collection'
+      ),
+      'Quiz collection deleted'
     );
   });
 });

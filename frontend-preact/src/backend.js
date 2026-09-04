@@ -13,6 +13,9 @@
  * bounded by a timeout so a hung bridge cannot freeze the UI.
  */
 
+import { parseStoredQna } from './qna.mjs';
+import { parseQuizPayloadValue } from './schemas.mjs';
+
 const BRIDGE_TIMEOUT_MS = 8000;
 
 const NATIVE_BINDINGS = [
@@ -20,6 +23,11 @@ const NATIVE_BINDINGS = [
   'get_time',
   'get_system_info',
   'get_status',
+  'get_notes',
+  'create_note',
+  'update_note',
+  'delete_note',
+  'save_pdf',
   'increment',
   'reset',
   'minimize_window',
@@ -124,7 +132,7 @@ export function unwrapBridge(raw, binding = 'backend') {
   if (response && typeof response === 'object' && 'ok' in response) {
     if (response.ok) return response.data;
     throw new BackendError(response.error || 'Backend request failed', {
-      code: 'backend_request_failed',
+      code: response.code || 'backend_request_failed',
       binding
     });
   }
@@ -146,13 +154,72 @@ export function parseQuizPayload(raw, binding = 'quiz') {
   const value = unwrapBridge(raw, binding);
   if (typeof value !== 'string') return value;
   try {
+    const parsed = parseQuizPayloadValue(JSON.parse(value));
+    if (parsed !== undefined) return parsed;
+  } catch {
+    if (binding.startsWith('quiz_delete_')) return value;
+  }
+  throw new BackendError(`Invalid quiz payload received from ${binding}`, {
+    code: 'backend_invalid_payload',
+    binding
+  });
+}
+
+function parseJsonData(raw, binding) {
+  const value = unwrapBridge(raw, binding);
+  if (typeof value !== 'string') return value;
+  try {
     return JSON.parse(value);
   } catch {
-    throw new BackendError(`Invalid quiz payload received from ${binding}`, {
+    throw new BackendError(`Invalid payload received from ${binding}`, {
       code: 'backend_invalid_payload',
       binding
     });
   }
+}
+
+function normalizeNote(note) {
+  if (!note || typeof note !== 'object') return undefined;
+  const qna = parseStoredQna(note.body);
+  if (
+    typeof note.id !== 'string' ||
+    typeof note.title !== 'string' ||
+    typeof note.tag !== 'string' ||
+    typeof note.updated !== 'string'
+  ) {
+    return undefined;
+  }
+  return {
+    id: note.id,
+    title: note.title,
+    tag: note.tag,
+    updated: note.updated,
+    question: qna.question,
+    answer: qna.answer
+  };
+}
+
+function nativeNotesAvailable() {
+  return hasBinding('get_notes');
+}
+
+function callNativeNote(name, ...args) {
+  return callBinding(name, ...args).then((raw) => {
+    const note = normalizeNote(parseJsonData(raw, name));
+    if (!note) {
+      throw new BackendError(`Invalid note payload received from ${name}`, {
+        code: 'backend_invalid_payload',
+        binding: name
+      });
+    }
+    return note;
+  });
+}
+
+function parseNotesPayload(raw) {
+  const notes = parseJsonData(raw, 'get_notes');
+  if (!Array.isArray(notes)) return [];
+  return notes.map(normalizeNote).filter(Boolean);
 }
 
 function callQuizBinding(name, payload) {
@@ -178,6 +245,7 @@ async function callNativeCount(binding, call) {
 
 export const backend = {
   isNative: () => NATIVE_BINDINGS.some(hasBinding),
+  hasNativeBinding: (name) => hasBinding(name),
   increment: async (delta) => {
     if (hasBinding('increment')) {
       return callNativeCount('increment', () =>
@@ -220,6 +288,38 @@ export const backend = {
       return unwrapBridge(await callBinding('get_status'), 'get_status');
     }
     return callBinding('getStatus');
+  },
+  getNotes: async () =>
+    nativeNotesAvailable()
+      ? parseNotesPayload(await callBinding('get_notes'))
+      : undefined,
+  createNote: (title, tag, body) =>
+    nativeNotesAvailable()
+      ? callNativeNote('create_note', title, tag, body)
+      : undefined,
+  updateNote: (id, title, tag, body) =>
+    nativeNotesAvailable()
+      ? callNativeNote('update_note', id, title, tag, body)
+      : undefined,
+  deleteNote: (id) =>
+    nativeNotesAvailable()
+      ? callBinding('delete_note', id).then((raw) =>
+          unwrapBridge(raw, 'delete_note')
+        )
+      : undefined,
+  savePdf: async (filename, dataBase64) => {
+    if (!hasBinding('save_pdf')) return undefined;
+    const result = parseJsonData(
+      await callBinding('save_pdf', filename, dataBase64),
+      'save_pdf'
+    );
+    if (!result || typeof result.path !== 'string') {
+      throw new BackendError('Invalid PDF save result', {
+        code: 'backend_invalid_payload',
+        binding: 'save_pdf'
+      });
+    }
+    return result;
   },
   quizList: async () => {
     if (!hasBinding('quiz_list')) return undefined;

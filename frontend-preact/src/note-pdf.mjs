@@ -1,5 +1,7 @@
 import html2pdf from 'html2pdf.js';
 import { jsPDF } from 'jspdf';
+import { parseMarkdown } from './note-markdown.mjs';
+import { generateNotePdfLibBytes } from './pdf-lib-export.mjs';
 
 const PDF_OPTIONS = {
   margin: [40, 48, 40, 48],
@@ -123,6 +125,19 @@ function safeFileName(title) {
   );
 }
 
+export function notePdfFileName(title) {
+  return `${safeFileName(title)}.pdf`;
+}
+
+export function pdfBytesToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let index = 0; index < bytes.length; index += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+  }
+  return btoa(binary);
+}
+
 function addTextElement(parent, tagName, text, style = {}) {
   const element = document.createElement(tagName);
   element.textContent = text;
@@ -132,36 +147,62 @@ function addTextElement(parent, tagName, text, style = {}) {
 }
 
 function addRichText(parent, text) {
-  const normalizedText = (text || '').replace(/\r\n/g, '\n');
-  const fencePattern = /```([^\n]*)\n([\s\S]*?)```/g;
-  let cursor = 0;
-
-  function addParagraphs(value) {
-    for (const paragraph of value.split(/\n{2,}/)) {
-      if (paragraph.trim()) addTextElement(parent, 'p', paragraph);
+  for (const block of parseMarkdown(text)) {
+    if (block.type === 'code') {
+      const codeBlock = document.createElement('div');
+      codeBlock.className = 'chain-note-code';
+      const languageLabel = addTextElement(
+        codeBlock,
+        'div',
+        block.lang || 'code'
+      );
+      languageLabel.className = 'chain-note-code-label';
+      const pre = document.createElement('pre');
+      const codeElement = document.createElement('code');
+      codeElement.textContent = block.text;
+      pre.append(codeElement);
+      codeBlock.append(pre);
+      parent.append(codeBlock);
+      continue;
     }
+    if (block.type === 'rule') {
+      parent.append(document.createElement('hr'));
+      continue;
+    }
+    const element = document.createElement(
+      block.type === 'heading'
+        ? `h${Math.min(Math.max(block.level, 1), 4)}`
+        : block.type === 'quote'
+          ? 'blockquote'
+          : block.type === 'list'
+            ? block.ordered
+              ? 'ol'
+              : 'ul'
+            : 'p'
+    );
+    if (block.type === 'heading') {
+      element.textContent = block.text;
+    } else if (block.type === 'list') {
+      for (const item of block.items) {
+        const listItem = document.createElement('li');
+        appendInlineSpans(listItem, item);
+        element.append(listItem);
+      }
+    } else {
+      appendInlineSpans(element, block.spans || []);
+    }
+    parent.append(element);
   }
+}
 
-  for (const match of normalizedText.matchAll(fencePattern)) {
-    const [fullMatch, language, code] = match;
-    const matchIndex = match.index ?? 0;
-    addParagraphs(normalizedText.slice(cursor, matchIndex));
-
-    const codeBlock = document.createElement('div');
-    codeBlock.className = 'chain-note-code';
-    const languageName = language.trim() || 'code';
-    const languageLabel = addTextElement(codeBlock, 'div', languageName);
-    languageLabel.className = 'chain-note-code-label';
-    const pre = document.createElement('pre');
-    const codeElement = document.createElement('code');
-    codeElement.textContent = code.replace(/^\n|\n$/g, '');
-    pre.append(codeElement);
-    codeBlock.append(pre);
-    parent.append(codeBlock);
-    cursor = matchIndex + fullMatch.length;
+function appendInlineSpans(parent, spans) {
+  for (const span of spans) {
+    const element = document.createElement(
+      span.c ? 'code' : span.b ? 'strong' : span.i ? 'em' : 'span'
+    );
+    element.textContent = span.t;
+    parent.append(element);
   }
-
-  addParagraphs(normalizedText.slice(cursor));
 }
 
 export function createNotePdfElement({ title, question, answer }) {
@@ -225,6 +266,10 @@ export async function exportHtmlNoteAsPdf(note) {
   } finally {
     element.remove();
   }
+}
+
+export function generateNotePdfBytes(note) {
+  return renderTextPdf(note).output('arraybuffer');
 }
 
 export function printNoteInSystemDialog(note) {
@@ -309,7 +354,8 @@ export async function benchmarkNotePdf(note, runs = 3) {
     const renderers = {
       'jsPDF text': () => renderTextPdf(note).output('arraybuffer'),
       'jsPDF.html': () => renderJsPdfHtml(element),
-      'html2pdf.js': () => renderHtml2Pdf(element)
+      'html2pdf.js': () => renderHtml2Pdf(element),
+      'pdf-lib': () => generateNotePdfLibBytes(note)
     };
     const timings = {};
 

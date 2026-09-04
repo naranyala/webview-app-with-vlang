@@ -17,19 +17,27 @@ version.
 
 ## Browser-Local Tools
 
-These tools currently use `localStorage` rather than the V store:
+These tools use the versioned `webview-app` IndexedDB database rather than the
+V store:
 
 | Tool | Storage key | Data |
 | --- | --- | --- |
 | Chain Notes | `webview-app.chain-notes` | Note title, tag, question, answer, and update marker |
-| Todos | `preact-todomvc.todos` | Todo text and completion state |
+| Todos | `preact-todomvc.todos` | Todo text, completion state, and optional due date |
 | Academic Paper | `webview-app.academic-papers` | Paper metadata, typed sections, references, and image assets |
 
 Academic Papers are normalized before use. A paper contains metadata, authors,
 abstract, keywords, ordered sections, typed blocks, references, and assets.
-Image assets are stored as data URLs with `name`, `type`, `src`, `alt`, and
-`caption`. Browser storage quotas therefore limit the practical size of an
-image library.
+The database uses schema version 1 and indexed tables for todos, notes, papers,
+references, and asset metadata. Image binary data is stored as `Blob` values;
+the reader converts those values back to data URLs for the current renderer.
+
+On first open, the storage module takes a raw backup under
+`webview-app.local-storage-backup.v1` and migrates any existing records from
+the three legacy `localStorage` keys. The backup is retained for manual import
+until a dedicated backup UI exists. Browser environments without IndexedDB use
+the legacy `localStorage` path as a fallback. Quota, corruption, and migration
+failure messaging remain open UI work.
 
 There is no cloud sync, conflict resolution, or automatic backup. Browser data
 and the native Quiz file are separate stores.

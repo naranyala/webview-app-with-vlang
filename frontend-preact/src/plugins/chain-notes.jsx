@@ -1,10 +1,20 @@
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { backend, backendError } from '../backend.js';
 import {
   benchmarkNotePdf,
   exportHtmlNoteAsPdf,
+  generateNotePdfBytes,
+  notePdfFileName,
+  pdfBytesToBase64,
   printNoteInSystemDialog
 } from '../note-pdf.mjs';
 import { createNoteSearcher } from '../notes-search.mjs';
+import { parseExternalChat, serializeQna } from '../qna.mjs';
+import { parseChainNoteRecords } from '../schemas.mjs';
+import {
+  loadChainNotesFromStorage,
+  saveChainNotesToStorage
+} from '../storage.mjs';
 import { styles, stylex } from '../stylex.js';
 
 const STORAGE_KEY = 'webview-app.chain-notes';
@@ -50,16 +60,7 @@ function loadNotes() {
     const stored = JSON.parse(window.localStorage.getItem(STORAGE_KEY));
     if (!Array.isArray(stored)) return starterNotes;
 
-    return stored.filter(
-      (note) =>
-        note &&
-        typeof note.id === 'string' &&
-        typeof note.title === 'string' &&
-        typeof note.tag === 'string' &&
-        typeof note.updated === 'string' &&
-        typeof note.question === 'string' &&
-        typeof note.answer === 'string'
-    );
+    return parseChainNoteRecords(stored);
   } catch {
     return starterNotes;
   }
@@ -79,11 +80,15 @@ export function ChainNotes() {
     () => notes[0]?.question ?? ''
   );
   const [noteAnswer, setNoteAnswer] = useState(() => notes[0]?.answer ?? '');
+  const [importText, setImportText] = useState('');
   const [storageError, setStorageError] = useState('');
+  const [storageReady, setStorageReady] = useState(false);
   const [exportError, setExportError] = useState('');
   const [exporting, setExporting] = useState(false);
   const [benchmarking, setBenchmarking] = useState(false);
   const [benchmarkStatus, setBenchmarkStatus] = useState('');
+  const saveTimer = useRef(null);
+  const nativeNotes = backend.hasNativeBinding('get_notes');
 
   const noteSearcher = useMemo(() => createNoteSearcher(notes), [notes]);
   const filteredNotes = useMemo(
@@ -95,15 +100,55 @@ export function ChainNotes() {
     : 0;
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
-      setStorageError('');
-    } catch {
-      setStorageError('Local changes could not be saved in this browser.');
-    }
-  }, [notes]);
+    let active = true;
+    const load = nativeNotes ? backend.getNotes() : loadChainNotesFromStorage();
+    load
+      .then((stored) => {
+        if (!active) return;
+        if (stored !== null && Array.isArray(stored)) {
+          setNotes(stored);
+          const firstNote = stored[0];
+          if (firstNote) {
+            setActiveNoteId(firstNote.id);
+            setNoteTitle(firstNote.title);
+            setNoteQuestion(firstNote.question);
+            setNoteAnswer(firstNote.answer);
+          } else {
+            setActiveNoteId(null);
+            setNoteTitle('');
+            setNoteQuestion('');
+            setNoteAnswer('');
+          }
+        }
+        setStorageReady(true);
+      })
+      .catch((error) => {
+        if (!active) return;
+        setStorageError(backendError(error));
+        setStorageReady(true);
+      });
+    return () => {
+      active = false;
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+  }, [nativeNotes]);
+
+  useEffect(() => {
+    if (!storageReady || nativeNotes) return;
+    let active = true;
+    saveChainNotesToStorage(notes).then((saved) => {
+      if (!active) return;
+      setStorageError(
+        saved ? '' : 'Local changes could not be saved in this browser.'
+      );
+    });
+    return () => {
+      active = false;
+    };
+  }, [notes, storageReady]);
 
   function selectNote(note) {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
     setActiveNoteId(note.id);
     setNoteTitle(note.title);
     setNoteQuestion(note.question);
@@ -111,6 +156,7 @@ export function ChainNotes() {
   }
 
   function updateNote(title, question, answer) {
+    const body = serializeQna(question, answer);
     setNotes((current) =>
       current.map((item) =>
         item.id === activeNoteId
@@ -124,9 +170,26 @@ export function ChainNotes() {
           : item
       )
     );
+    if (nativeNotes && activeNoteId) {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      const noteId = activeNoteId;
+      const tag = notes.find((item) => item.id === noteId)?.tag || 'Draft';
+      saveTimer.current = setTimeout(() => {
+        backend
+          .updateNote(noteId, title || 'Untitled note', tag, body)
+          .then((savedNote) => {
+            setNotes((current) =>
+              current.map((item) =>
+                item.id === savedNote.id ? savedNote : item
+              )
+            );
+          })
+          .catch((error) => setStorageError(backendError(error)));
+      }, 350);
+    }
   }
 
-  function createNote() {
+  async function createNote() {
     const note = {
       id: createId(),
       title: 'Untitled Q&A',
@@ -135,12 +198,26 @@ export function ChainNotes() {
       question: '',
       answer: ''
     };
-    setNotes((current) => [...current, note]);
-    selectNote(note);
+    try {
+      const created = nativeNotes
+        ? await backend.createNote(note.title, note.tag, serializeQna('', ''))
+        : note;
+      setNotes((current) => [...current, created]);
+      selectNote(created);
+    } catch (error) {
+      setStorageError(backendError(error));
+    }
   }
 
-  function deleteNote() {
+  async function deleteNote() {
     if (!activeNoteId) return;
+
+    try {
+      if (nativeNotes) await backend.deleteNote(activeNoteId);
+    } catch (error) {
+      setStorageError(backendError(error));
+      return;
+    }
 
     const currentIndex = notes.findIndex((note) => note.id === activeNoteId);
     const remaining = notes.filter((note) => note.id !== activeNoteId);
@@ -156,16 +233,38 @@ export function ChainNotes() {
     }
   }
 
+  function importChat() {
+    const qna = parseExternalChat(importText);
+    if (!qna) {
+      setStorageError('Paste a question and answer before importing.');
+      return;
+    }
+    setStorageError('');
+    setNoteQuestion(qna.question);
+    setNoteAnswer(qna.answer);
+    updateNote(noteTitle, qna.question, qna.answer);
+    setImportText('');
+  }
+
   async function exportNoteAsPdf() {
     if (exporting || benchmarking) return;
     setExporting(true);
     setExportError('');
     try {
-      await exportHtmlNoteAsPdf({
+      const note = {
         title: noteTitle,
         question: noteQuestion,
         answer: noteAnswer
-      });
+      };
+      if (backend.hasNativeBinding('save_pdf')) {
+        const bytes = generateNotePdfBytes(note);
+        await backend.savePdf(
+          notePdfFileName(note.title),
+          pdfBytesToBase64(bytes)
+        );
+      } else {
+        await exportHtmlNoteAsPdf(note);
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       setExportError(`PDF export failed: ${message}`);
@@ -414,6 +513,28 @@ export function ChainNotes() {
                   updateNote(noteTitle, noteQuestion, next);
                 }}
               />
+              <label
+                className={stylex.props(styles.formLabel).className}
+                htmlFor="note-import"
+              >
+                Import external chat
+              </label>
+              <textarea
+                id="note-import"
+                className={stylex.props(styles.formTextarea).className}
+                aria-label="Import external chat"
+                placeholder="Question: ...\n\nAnswer: ..."
+                value={importText}
+                onInput={(event) => setImportText(event.currentTarget.value)}
+              />
+              <button
+                type="button"
+                className={stylex.props(styles.textButton).className}
+                onClick={importChat}
+                disabled={!importText.trim()}
+              >
+                Import Q&A
+              </button>
               <div className={stylex.props(styles.noteEditorFooter).className}>
                 <span>
                   {benchmarkStatus || 'Saved automatically on this device.'}

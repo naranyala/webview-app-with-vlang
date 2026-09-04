@@ -202,6 +202,10 @@ function safeFileName(title) {
   );
 }
 
+export function academicPaperPdfFileName(title) {
+  return `${safeFileName(title)}.pdf`;
+}
+
 function addTextElement(parent, tagName, text, className) {
   const element = document.createElement(tagName);
   element.textContent = text;
@@ -317,6 +321,20 @@ export async function exportAcademicPaperAsPdf(paper) {
       .set({ ...PDF_OPTIONS, filename: `${safeFileName(paper.title)}.pdf` })
       .from(element)
       .save();
+  } finally {
+    element.remove();
+  }
+}
+
+export async function generateAcademicPaperPdfBytes(paper) {
+  const element = createAcademicPaperPdfElement(paper);
+  document.body.append(element);
+  try {
+    return await html2pdf()
+      .set(PDF_OPTIONS)
+      .from(element)
+      .toPdf()
+      .output('arraybuffer');
   } finally {
     element.remove();
   }

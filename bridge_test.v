@@ -22,6 +22,7 @@ fn test_bridge_failure_serializes_error() {
 	assert !response.ok
 	assert response.data == ''
 	assert response.error == 'invalid request'
+	assert response.code == 'BackendError'
 }
 
 fn test_system_name_matches_build_platform() {

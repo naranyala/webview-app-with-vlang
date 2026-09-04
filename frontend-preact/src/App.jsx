@@ -26,6 +26,7 @@ const TAB_GLYPH = {
 const TOOLS_GROUP_IDS = ['disk', 'equalizer'];
 const QUIZ_GROUP_ID = 'quiz';
 const PAPER_GROUP_ID = 'paper';
+const TODO_GROUP_ID = 'todos';
 const QUIZ_MENU_ITEMS = [
   {
     id: 'session',
@@ -55,6 +56,18 @@ const PAPER_MENU_ITEMS = [
     description: 'Keep figures and visual evidence beside the paper.'
   }
 ];
+const TODO_MENU_ITEMS = [
+  {
+    id: 'list',
+    title: 'Todo List',
+    description: 'Capture and complete the work in front of you.'
+  },
+  {
+    id: 'calendar',
+    title: 'Calendar',
+    description: 'Pick a month and see scheduled todos by day.'
+  }
+];
 
 export function App() {
   const [activeApp, setActiveApp] = useState(null);
@@ -71,7 +84,8 @@ export function App() {
         (plugin) =>
           !TOOLS_GROUP_IDS.includes(plugin.id) &&
           plugin.id !== QUIZ_GROUP_ID &&
-          plugin.id !== PAPER_GROUP_ID
+          plugin.id !== PAPER_GROUP_ID &&
+          plugin.id !== TODO_GROUP_ID
       ),
     []
   );
@@ -83,11 +97,14 @@ export function App() {
   const toolsActive = TOOLS_GROUP_IDS.includes(activeApp);
   const quizActive = activeApp === QUIZ_GROUP_ID;
   const paperActive = activeApp === PAPER_GROUP_ID;
+  const todoActive = activeApp === TODO_GROUP_ID;
   const showToolsMenu = openMenu === 'tools';
   const showQuizMenu = openMenu === 'quiz';
   const showPaperMenu = openMenu === 'paper';
+  const showTodoMenu = openMenu === 'todos';
   const [quizView, setQuizView] = useState('session');
   const [paperView, setPaperView] = useState('reader');
+  const [todoView, setTodoView] = useState('list');
 
   function toggleMenu(menuId) {
     setOpenMenu((current) => (current === menuId ? null : menuId));
@@ -109,6 +126,8 @@ export function App() {
       setOpenMenu('quiz');
     } else if (appId === PAPER_GROUP_ID) {
       setOpenMenu('paper');
+    } else if (appId === TODO_GROUP_ID) {
+      setOpenMenu('todos');
     } else {
       setOpenMenu(null);
     }
@@ -131,6 +150,11 @@ export function App() {
   function selectPaperView(view) {
     setPaperView(view);
     selectApp(PAPER_GROUP_ID);
+  }
+
+  function selectTodoView(view) {
+    setTodoView(view);
+    selectApp(TODO_GROUP_ID);
   }
 
   function goHome() {
@@ -213,6 +237,30 @@ export function App() {
             )}
           </button>
         ))}
+        <div {...stylex.props(styles.tabGroup)}>
+          <button
+            type="button"
+            {...stylex.props(
+              styles.tab,
+              styles.tabHover,
+              todoActive && styles.tabActive,
+              todoActive && styles.tabActiveBar
+            )}
+            onClick={() =>
+              todoActive ? toggleMenu('todos') : selectTodoView('list')
+            }
+            aria-expanded={showTodoMenu}
+            aria-controls="todos-panel"
+          >
+            <span {...stylex.props(styles.tabGlyph)} aria-hidden="true">
+              {TAB_GLYPH.todos}
+            </span>
+            <span {...stylex.props(styles.tabLabel)}>Todos</span>
+            <span {...stylex.props(styles.submenuChevron)} aria-hidden="true">
+              {showTodoMenu ? '▴' : '▾'}
+            </span>
+          </button>
+        </div>
         <div {...stylex.props(styles.tabGroup)}>
           <button
             type="button"
@@ -410,6 +458,48 @@ export function App() {
           </div>
         </aside>
       )}
+      {showTodoMenu && (
+        <aside
+          {...stylex.props(styles.sidebarPanel, styles.responsiveSidebarPanel)}
+          id="todos-panel"
+          aria-label="Todos submenu"
+        >
+          <p {...stylex.props(styles.panelEyebrow)}>Keep it light</p>
+          <h2 {...stylex.props(styles.panelTitle)}>Todos</h2>
+          <div {...stylex.props(styles.panelList)}>
+            {TODO_MENU_ITEMS.map((item) => (
+              <button
+                type="button"
+                key={item.id}
+                {...stylex.props(
+                  styles.compactPanelRow,
+                  todoView === item.id && styles.compactPanelRowActive
+                )}
+                onClick={() => selectTodoView(item.id)}
+                aria-current={todoView === item.id ? 'page' : undefined}
+              >
+                <span
+                  {...stylex.props(styles.compactPanelGlyph)}
+                  aria-hidden="true"
+                >
+                  {item.id === 'calendar' ? '▦' : '✓'}
+                </span>
+                <span {...stylex.props(styles.rowCopy)}>
+                  <strong {...stylex.props(styles.rowCopyStrong)}>
+                    {item.title}
+                  </strong>
+                  <small {...stylex.props(styles.rowCopySmall)}>
+                    {item.description}
+                  </small>
+                </span>
+                <span {...stylex.props(styles.rowChevron)} aria-hidden="true">
+                  ›
+                </span>
+              </button>
+            ))}
+          </div>
+        </aside>
+      )}
     </>
   );
 
@@ -419,8 +509,9 @@ export function App() {
         {...stylex.props(
           styles.shell,
           styles.responsiveShell,
-          (showToolsMenu || showQuizMenu || showPaperMenu) && styles.shellPanel,
-          (showToolsMenu || showQuizMenu || showPaperMenu) &&
+          (showToolsMenu || showQuizMenu || showPaperMenu || showTodoMenu) &&
+            styles.shellPanel,
+          (showToolsMenu || showQuizMenu || showPaperMenu || showTodoMenu) &&
             styles.responsivePanelShell
         )}
       >
@@ -492,8 +583,9 @@ export function App() {
       {...stylex.props(
         styles.shell,
         styles.responsiveShell,
-        (showToolsMenu || showQuizMenu || showPaperMenu) && styles.shellPanel,
-        (showToolsMenu || showQuizMenu || showPaperMenu) &&
+        (showToolsMenu || showQuizMenu || showPaperMenu || showTodoMenu) &&
+          styles.shellPanel,
+        (showToolsMenu || showQuizMenu || showPaperMenu || showTodoMenu) &&
           styles.responsivePanelShell
       )}
     >
@@ -582,6 +674,7 @@ export function App() {
           <ActivePlugin
             quizView={activeApp === QUIZ_GROUP_ID ? quizView : undefined}
             paperView={activeApp === PAPER_GROUP_ID ? paperView : undefined}
+            todoView={activeApp === TODO_GROUP_ID ? todoView : undefined}
           />
         </ErrorBoundary>
       </main>

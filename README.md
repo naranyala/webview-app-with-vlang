@@ -12,6 +12,8 @@ frontend is the StyleX-powered Preact application in `frontend-preact/`.
   export.
 - Quiz sessions and collection/question editing backed by versioned JSON in the
   operating system configuration directory.
+- Todos with compact sidebar navigation, due dates, filters, and a monthly
+  calendar picker.
 - Academic Paper reader with a two-column layout, reference manager, image
   asset library, and print/download PDF flows.
 - Interactive Audio Equalizer and Disk Scanner UI prototypes using mock data.

@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "npm run check && node build.js",
+    "build": "npm run check && npm run check:bindings && node build.js",
     "check": "node node_modules/@biomejs/biome/bin/biome check .",
+    "check:bindings": "node check-bindings.cjs",
     "check:write": "node node_modules/@biomejs/biome/bin/biome check --write .",
     "dev": "npm run check && node build.js --watch --serve",
     "format": "node node_modules/@biomejs/biome/bin/biome format --write .",
@@ -13,23 +14,37 @@
     "bench:notes-pdf": "node benchmarks/notes-pdf.mjs",
     "bench:notes-search": "node benchmarks/notes-search.mjs",
     "serve": "node build.js --serve",
-    "test": "node --test src/*.test.mjs"
+    "test": "node --test src/*.test.mjs && npm run test:components",
+    "test:components": "node node_modules/vitest/vitest.mjs run"
   },
   "dependencies": {
     "@stylexjs/stylex": "^0.19.0",
+    "dexie": "^4.4.5",
     "fast-fuzzy": "^1.12.0",
     "html2pdf.js": "^0.14.0",
     "jspdf": "^4.2.1",
-    "preact": "^10.27.2"
+    "pdf-lib": "^1.17.1",
+    "preact": "^10.27.2",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.11",
+    "@preact/preset-vite": "^2.10.6",
     "@stylexjs/unplugin": "^0.19.0",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/preact": "^3.2.4",
     "esbuild": "^0.25.9",
+    "fake-indexeddb": "^6.2.5",
     "fuse.js": "^7.5.0",
     "fuzzysort": "^4.0.2",
     "html-to-pdfmake": "^2.5.34",
     "jsdom": "^30.0.1",
-    "pdfmake": "^0.3.11"
+    "pdfmake": "^0.3.11",
+    "unplugin": "^2.3.2",
+    "vite": "^8.2.2",
+    "vitest": "^5.0.0"
+  },
+  "overrides": {
+    "esbuild": "$esbuild"
   }
 }

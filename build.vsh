@@ -62,6 +62,12 @@ fn test_all() ! {
 		exit(1)
 	}
 	print(frontend.output)
+	bindings := os.execute('npm run check:bindings --prefix ${frontend_dir}')
+	if bindings.exit_code != 0 {
+		eprintln('Frontend binding checks failed:\n${bindings.output}')
+		exit(1)
+	}
+	print(bindings.output)
 
 	println('Running frontend tests...')
 	frontend_tests := os.execute('npm test --prefix ${frontend_dir}')
@@ -72,7 +78,7 @@ fn test_all() ! {
 	print(frontend_tests.output)
 
 	println('Running backend tests...')
-	for test_file in ['bridge_test.v', 'plugins_test.v', 'server_test.v', 'quiz_storage_test.v'] {
+	for test_file in ['bridge_test.v', 'plugins_test.v', 'server_test.v', 'quiz_storage_test.v', 'notes_storage_test.v'] {
 		backend := os.execute('v test ${test_file}')
 		if backend.exit_code != 0 {
 			eprintln('Backend tests failed in ${test_file}:\n${backend.output}')
