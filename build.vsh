@@ -4,22 +4,16 @@ import os
 import cli
 
 const frontend_dir = os.join_path(@VMODROOT, 'frontend-preact')
-const frontend_node_modules = os.join_path(frontend_dir, 'node_modules')
+
+fn shell_quote(value string) string {
+	return "'" + value.replace("'", '\'"\'"\'') + "'"
+}
 
 fn install_frontend() ! {
-	if os.is_dir(frontend_node_modules) {
-		return
-	}
-
-	res := os.execute('npm ci --no-bin-links --prefix ${frontend_dir}')
-	if res.exit_code == 0 {
-		return
-	}
-
-	eprintln('npm ci failed; retrying with npm install:\n${res.output}')
-	fallback := os.execute('npm install --no-bin-links --prefix ${frontend_dir}')
-	if fallback.exit_code != 0 {
-		eprintln('Frontend dependency installation failed:\n${fallback.output}')
+	println('Installing frontend dependencies from package-lock.json...')
+	res := os.execute('npm ci --no-bin-links --prefix ${shell_quote(frontend_dir)}')
+	if res.exit_code != 0 {
+		eprintln('Frontend dependency installation failed:\n${res.output}')
 		exit(1)
 	}
 }
@@ -27,7 +21,7 @@ fn install_frontend() ! {
 fn build_frontend() ! {
 	println('Building Preact frontend...')
 	install_frontend()!
-	res := os.execute('npm run build --prefix ${frontend_dir}')
+	res := os.execute('npm run build --prefix ${shell_quote(frontend_dir)}')
 	if res.exit_code != 0 {
 		eprintln('Frontend build failed:\n${res.output}')
 		exit(1)
@@ -46,7 +40,7 @@ fn build_app() ! {
 }
 
 fn run_app(dev bool) ! {
-	cmd := if dev { 'v -d dev run .' } else { 'v run .' }
+	cmd := if dev { 'v -d dev run .' } else { shell_quote(os.join_path(@VMODROOT, 'webview-app')) }
 	res := os.execute(cmd)
 	if res.exit_code != 0 {
 		eprintln('Run failed:\n${res.output}')
@@ -55,14 +49,15 @@ fn run_app(dev bool) ! {
 }
 
 fn test_all() ! {
+	install_frontend()!
 	println('Running frontend checks...')
-	frontend := os.execute('npm run check --prefix ${frontend_dir}')
+	frontend := os.execute('npm run check --prefix ${shell_quote(frontend_dir)}')
 	if frontend.exit_code != 0 {
 		eprintln('Frontend checks failed:\n${frontend.output}')
 		exit(1)
 	}
 	print(frontend.output)
-	bindings := os.execute('npm run check:bindings --prefix ${frontend_dir}')
+	bindings := os.execute('npm run check:bindings --prefix ${shell_quote(frontend_dir)}')
 	if bindings.exit_code != 0 {
 		eprintln('Frontend binding checks failed:\n${bindings.output}')
 		exit(1)
@@ -70,7 +65,7 @@ fn test_all() ! {
 	print(bindings.output)
 
 	println('Running frontend tests...')
-	frontend_tests := os.execute('npm test --prefix ${frontend_dir}')
+	frontend_tests := os.execute('npm test --prefix ${shell_quote(frontend_dir)}')
 	if frontend_tests.exit_code != 0 {
 		eprintln('Frontend tests failed:\n${frontend_tests.output}')
 		exit(1)
@@ -78,7 +73,8 @@ fn test_all() ! {
 	print(frontend_tests.output)
 
 	println('Running backend tests...')
-	for test_file in ['bridge_test.v', 'plugins_test.v', 'server_test.v', 'quiz_storage_test.v', 'notes_storage_test.v'] {
+	for test_file in ['bridge_test.v', 'plugins_test.v', 'server_test.v', 'quiz_storage_test.v',
+		'notes_storage_test.v', 'storage_paths_test.v', 'studio_test.v', 'log_test.v'] {
 		backend := os.execute('v test ${test_file}')
 		if backend.exit_code != 0 {
 			eprintln('Backend tests failed in ${test_file}:\n${backend.output}')

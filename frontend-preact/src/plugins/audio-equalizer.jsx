@@ -1,4 +1,11 @@
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
+import { backend } from '../backend.js';
+import {
+  formatDuration,
+  formatTempo,
+  MOCK_AUDIO_FEATURES,
+  parseAudioFeatures
+} from '../mir.mjs';
 import { styles, stylex } from '../stylex.js';
 
 const equalizerPresets = [
@@ -18,6 +25,24 @@ export function AudioEqualizer() {
   const [equalizerEnabled, setEqualizerEnabled] = useState(true);
   const [bandValues, setBandValues] = useState([-2, 1, 3, 4, 2, -1, -2]);
   const [masterVolume, setMasterVolume] = useState(68);
+  const [features, setFeatures] = useState(MOCK_AUDIO_FEATURES);
+  const [analysisError, setAnalysisError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    backend
+      .analyzeAudio('night-drive.wav')
+      .then((result) => {
+        const parsed = parseAudioFeatures(result);
+        if (active && parsed) setFeatures(parsed);
+      })
+      .catch((error) => {
+        if (active && error?.message) setAnalysisError(error.message);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   function choosePreset(preset) {
     setActivePreset(preset.name);
@@ -35,15 +60,19 @@ export function AudioEqualizer() {
     <section className={stylex.props(styles.toolPage).className}>
       <div className={stylex.props(styles.toolHeading).className}>
         <div>
-          <p className={stylex.props(styles.eyebrow).className}>Sound</p>
+          <p className={stylex.props(styles.eyebrow).className}>MIR bench</p>
           <h1 className={stylex.props(styles.headingTitle).className}>
-            Equalizer
+            MIR Workbench
           </h1>
           <p className={stylex.props(styles.headingText).className}>
-            Tune the mix. Changes are local for now.
+            {formatTempo(features)} · {formatDuration(features.durationSec)} ·
+            centroid {Math.round(features.spectralCentroidHz)} Hz
+            {analysisError
+              ? ` · native analysis pending (${analysisError})`
+              : ''}
           </p>
         </div>
-        <span className={stylex.props(styles.mockBadge).className}>Mock</span>
+        <span className={stylex.props(styles.mockBadge).className}>Local</span>
       </div>
 
       <div className={stylex.props(styles.toolPanel).className}>

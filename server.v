@@ -33,6 +33,15 @@ fn wait_for_frontend() bool {
 struct StaticHttpHandler {}
 
 fn (mut h StaticHttpHandler) handle(req http.Request) http.Response {
+	mut response := h.response_for(req)
+	response.header.add(.content_length, response.body.len.str())
+	if req.method == .head {
+		response.body = ''
+	}
+	return response
+}
+
+fn (mut h StaticHttpHandler) response_for(req http.Request) http.Response {
 	mut res := http.new_response(body: '')
 	if req.method != .get && req.method != .head {
 		res.set_status(.method_not_allowed)

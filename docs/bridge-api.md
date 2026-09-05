@@ -60,6 +60,22 @@ Collection fields are `id`, `title`, `description`, `tone`, `level`, and
 Collections are limited to 1,000 items, questions to 500 per collection, and
 question/answer text to 20,000 characters.
 
+## Studio Bindings
+
+| Binding | Argument | Successful data |
+| --- | --- | --- |
+| `list_volumes` | None | JSON array of Blender/sample/render volumes |
+| `start_asset_scan` | Root path | Queued scan-job JSON |
+| `get_asset_scan_status` | Job ID | Scan-job JSON |
+| `cancel_asset_scan` | Job ID | Status string |
+| `get_audio_metadata` | Audio path | Format, duration, rate, channels JSON |
+| `analyze_audio` | Audio path | Tempo, key, loudness, chroma, MFCC JSON |
+| `mir_analyze` | JSON `{ samples, sample_rate }` | Time-domain features JSON (`rms`, `peak`, `zcr`, counts) |
+
+Audio paths are limited to `.wav`, `.flac`, `.mp3`, `.ogg`, `.mid`, and
+`.midi`. Native analysis currently returns a validated placeholder feature
+document with the same shape the real DSP pipeline will produce.
+
 ## Frontend Client
 
 Use the exported `backend` object rather than calling `window.*` directly:

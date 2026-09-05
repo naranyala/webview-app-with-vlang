@@ -1,9 +1,22 @@
 module main
 
 struct BackendPlugin {
-	id       string
-	name     string
-	register fn (mut App) = unsafe { nil }
+	id          string
+	name        string
+	version     string = '0.1.0'
+	description string
+	enabled     bool   = true
+	register    fn (mut App) = unsafe { nil }
+}
+
+fn validate_backend_plugins(plugins []BackendPlugin) ! {
+	for index, plugin in plugins {
+		for previous in plugins[..index] {
+			if plugin.id == previous.id {
+				return error('Duplicate backend plugin: ${plugin.id}')
+			}
+		}
+	}
 }
 
 fn backend_plugins() []BackendPlugin {
@@ -17,7 +30,15 @@ fn backend_plugins() []BackendPlugin {
 }
 
 fn register_backend_plugins(mut app App) {
-	for plugin in backend_plugins() {
+	plugins := backend_plugins()
+	validate_backend_plugins(plugins) or {
+		eprintln('[plugins:error] ${err.msg()}')
+		return
+	}
+	for plugin in plugins {
+		if !plugin.enabled {
+			continue
+		}
 		if plugin.register == unsafe { nil } {
 			eprintln('[plugins:error] Skipping plugin without register fn: ${plugin.id}')
 			continue

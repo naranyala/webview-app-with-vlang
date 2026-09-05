@@ -89,6 +89,13 @@ fn register_core_bridge(mut app App) {
 	app.window.bind('quiz_create_question', app.quiz_create_question)
 	app.window.bind('quiz_update_question', app.quiz_update_question)
 	app.window.bind('quiz_delete_question', app.quiz_delete_question)
+	app.window.bind('list_volumes', app.list_volumes)
+	app.window.bind('start_asset_scan', app.start_asset_scan)
+	app.window.bind('get_asset_scan_status', app.get_asset_scan_status)
+	app.window.bind('cancel_asset_scan', app.cancel_asset_scan)
+	app.window.bind('get_audio_metadata', app.get_audio_metadata)
+	app.window.bind('analyze_audio', app.analyze_audio)
+	app.window.bind('mir_analyze', app.mir_analyze)
 }
 
 fn (mut app App) get_notes(_ &webview.Event) string {

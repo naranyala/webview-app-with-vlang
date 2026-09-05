@@ -53,3 +53,17 @@ fn test_note_store_rejects_invalid_input() {
 		assert err.msg() == 'Note title is required'
 	}
 }
+
+fn test_note_store_rejects_duplicate_ids_on_reload() {
+	path := os.join_path(os.temp_dir(), 'webview-duplicate-notes-${time.now().unix_nano()}.json')
+	os.write_file(path, '{"version":1,"counter":2,"notes":[{"id":"same","title":"One","tag":"Draft","updated":"Now","body":""},{"id":"same","title":"Two","tag":"Draft","updated":"Now","body":""}]}') or {
+		assert false, err.msg()
+		return
+	}
+	if _ := init_note_store(path) {
+		assert false, 'duplicate note ids should fail validation'
+	} else {
+		assert err.msg() == 'Duplicate note id'
+	}
+	os.rm(path) or {}
+}

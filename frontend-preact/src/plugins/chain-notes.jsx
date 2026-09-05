@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { createAutosave, registerAutosave } from '../autosave.mjs';
 import { backend, backendError } from '../backend.js';
 import {
   benchmarkNotePdf,
@@ -87,8 +88,25 @@ export function ChainNotes() {
   const [exporting, setExporting] = useState(false);
   const [benchmarking, setBenchmarking] = useState(false);
   const [benchmarkStatus, setBenchmarkStatus] = useState('');
-  const saveTimer = useRef(null);
+  const mounted = useRef(true);
+  const autosave = useRef(null);
+  if (!autosave.current) {
+    autosave.current = createAutosave(
+      ({ id, title, tag, body }) => backend.updateNote(id, title, tag, body),
+      {
+        onError: (error) => {
+          if (mounted.current) setStorageError(backendError(error));
+          else console.error('Note save failed after navigation:', error);
+        }
+      }
+    );
+  }
   const nativeNotes = backend.hasNativeBinding('get_notes');
+
+  useEffect(() => {
+    const unregister = registerAutosave(() => autosave.current.flush());
+    return unregister;
+  }, []);
 
   const noteSearcher = useMemo(() => createNoteSearcher(notes), [notes]);
   const filteredNotes = useMemo(
@@ -101,6 +119,7 @@ export function ChainNotes() {
 
   useEffect(() => {
     let active = true;
+    mounted.current = true;
     const load = nativeNotes ? backend.getNotes() : loadChainNotesFromStorage();
     load
       .then((stored) => {
@@ -129,7 +148,8 @@ export function ChainNotes() {
       });
     return () => {
       active = false;
-      if (saveTimer.current) clearTimeout(saveTimer.current);
+      mounted.current = false;
+      void autosave.current.flush();
     };
   }, [nativeNotes]);
 
@@ -148,7 +168,7 @@ export function ChainNotes() {
   }, [notes, storageReady]);
 
   function selectNote(note) {
-    if (saveTimer.current) clearTimeout(saveTimer.current);
+    void autosave.current.flush();
     setActiveNoteId(note.id);
     setNoteTitle(note.title);
     setNoteQuestion(note.question);
@@ -171,21 +191,14 @@ export function ChainNotes() {
       )
     );
     if (nativeNotes && activeNoteId) {
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-      const noteId = activeNoteId;
-      const tag = notes.find((item) => item.id === noteId)?.tag || 'Draft';
-      saveTimer.current = setTimeout(() => {
-        backend
-          .updateNote(noteId, title || 'Untitled note', tag, body)
-          .then((savedNote) => {
-            setNotes((current) =>
-              current.map((item) =>
-                item.id === savedNote.id ? savedNote : item
-              )
-            );
-          })
-          .catch((error) => setStorageError(backendError(error)));
-      }, 350);
+      const tag =
+        notes.find((item) => item.id === activeNoteId)?.tag || 'Draft';
+      autosave.current.schedule(activeNoteId, {
+        id: activeNoteId,
+        title: title || 'Untitled note',
+        tag,
+        body
+      });
     }
   }
 
@@ -213,7 +226,10 @@ export function ChainNotes() {
     if (!activeNoteId) return;
 
     try {
-      if (nativeNotes) await backend.deleteNote(activeNoteId);
+      if (nativeNotes) {
+        if (!(await autosave.current.flush())) return;
+        await backend.deleteNote(activeNoteId);
+      }
     } catch (error) {
       setStorageError(backendError(error));
       return;

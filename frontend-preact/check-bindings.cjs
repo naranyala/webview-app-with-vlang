@@ -24,7 +24,14 @@ const expected = [
   'quiz_delete_collection',
   'quiz_create_question',
   'quiz_update_question',
-  'quiz_delete_question'
+  'quiz_delete_question',
+  'list_volumes',
+  'start_asset_scan',
+  'get_asset_scan_status',
+  'cancel_asset_scan',
+  'get_audio_metadata',
+  'analyze_audio',
+  'mir_analyze'
 ];
 
 const root = __dirname;

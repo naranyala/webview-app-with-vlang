@@ -48,15 +48,18 @@ const quiz_database_version = 1
 const max_quiz_collections = 1000
 const max_quiz_questions = 500
 const max_quiz_text_len = 20000
+const max_quiz_database_bytes = 64 * 1024 * 1024
+const max_quiz_payload_bytes = 32 * 1024 * 1024
 
 fn new_quiz_store() !QuizStore {
-	config_dir := os.config_dir()!
-	storage_dir := os.join_path(config_dir, 'webview-app')
-	os.mkdir_all(storage_dir)!
+	storage_dir := application_storage_dir()!
 	path := os.join_path(storage_dir, 'quizzes.json')
 
 	if os.exists(path) {
 		raw := os.read_file(path)!
+		if raw.len > max_quiz_database_bytes {
+			return error('Quiz database is too large')
+		}
 		database := json.decode(QuizDatabase, raw)!
 		if database.version != quiz_database_version {
 			return error('Unsupported quiz database version')
@@ -84,6 +87,27 @@ fn normalize_collections(collections []QuizCollection) ![]QuizCollection {
 	mut normalized := []QuizCollection{}
 	for collection in collections {
 		normalized << validate_collection(collection)!
+	}
+	for collection_index, collection in normalized {
+		for previous_index in 0 .. collection_index {
+			if normalized[previous_index].id == collection.id {
+				return error('Duplicate quiz collection id')
+			}
+		}
+		for question_index, question in collection.questions {
+			for previous_question_index in 0 .. question_index {
+				if collection.questions[previous_question_index].id == question.id {
+					return error('Duplicate quiz question id')
+				}
+			}
+			for previous_collection_index in 0 .. collection_index {
+				for previous_question in normalized[previous_collection_index].questions {
+					if previous_question.id == question.id {
+						return error('Duplicate quiz question id')
+					}
+				}
+			}
+		}
 	}
 	return normalized
 }
@@ -147,19 +171,27 @@ fn (mut store QuizStore) save() ! {
 }
 
 fn (mut store QuizStore) new_id(prefix string) string {
-	id := '${prefix}-${time.now().unix()}-${store.next_id}'
+	id := '${prefix}-${time.now().unix_nano()}-${store.next_id}'
 	store.next_id++
 	return id
 }
 
 fn (mut store QuizStore) list() ![]QuizCollection {
 	store.mutex.lock()
-	result := store.collections
+	mut result := []QuizCollection{}
+	for collection in store.collections {
+		mut snapshot := collection
+		snapshot.questions = collection.questions.clone()
+		result << snapshot
+	}
 	store.mutex.unlock()
 	return result
 }
 
 fn (mut store QuizStore) create_collection(payload string) !QuizCollection {
+	if payload.len > max_quiz_payload_bytes {
+		return error('Quiz payload is too large')
+	}
 	incoming := json.decode(QuizCollection, payload)!
 	mut collection_input := incoming
 	collection_input.id = 'pending'
@@ -181,6 +213,9 @@ fn (mut store QuizStore) create_collection(payload string) !QuizCollection {
 }
 
 fn (mut store QuizStore) update_collection(payload string) !QuizCollection {
+	if payload.len > max_quiz_payload_bytes {
+		return error('Quiz payload is too large')
+	}
 	incoming := json.decode(QuizCollection, payload)!
 	collection := validate_collection(incoming)!
 	store.mutex.lock()
@@ -226,6 +261,9 @@ fn (mut store QuizStore) delete_collection(id string) ! {
 }
 
 fn (mut store QuizStore) create_question(payload string) !QuizCollection {
+	if payload.len > max_quiz_payload_bytes {
+		return error('Quiz payload is too large')
+	}
 	request := json.decode(QuizQuestionRequest, payload)!
 	mut question := validate_question(QuizQuestion{
 		id:       'pending'
@@ -256,6 +294,9 @@ fn (mut store QuizStore) create_question(payload string) !QuizCollection {
 }
 
 fn (mut store QuizStore) update_question(payload string) !QuizCollection {
+	if payload.len > max_quiz_payload_bytes {
+		return error('Quiz payload is too large')
+	}
 	request := json.decode(QuizQuestionRequest, payload)!
 	question := validate_question(QuizQuestion{
 		id:       request.id
@@ -287,6 +328,9 @@ fn (mut store QuizStore) update_question(payload string) !QuizCollection {
 }
 
 fn (mut store QuizStore) delete_question(payload string) !QuizCollection {
+	if payload.len > max_quiz_payload_bytes {
+		return error('Quiz payload is too large')
+	}
 	request := json.decode(QuizQuestionRequest, payload)!
 	store.mutex.lock()
 	collection_index := store.collection_index(request.collection_id)

@@ -26,6 +26,13 @@ declare global {
     quiz_create_question(payload: string): Promise<string>;
     quiz_update_question(payload: string): Promise<string>;
     quiz_delete_question(payload: string): Promise<string>;
+    list_volumes(): Promise<string>;
+    start_asset_scan(path: string): Promise<string>;
+    get_asset_scan_status(jobId: string): Promise<string>;
+    cancel_asset_scan(jobId: string): Promise<string>;
+    get_audio_metadata(path: string): Promise<string>;
+    analyze_audio(path: string): Promise<string>;
+    mir_analyze(payload: string): Promise<string>;
     increment(delta: number): Promise<string>;
     reset(): Promise<string>;
     minimize_window(): Promise<string>;

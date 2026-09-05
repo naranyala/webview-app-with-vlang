@@ -15,11 +15,6 @@ if ! command -v npm >/dev/null 2>&1; then
 	exit 1
 fi
 
-if [[ ! -f "$ROOT_DIR/frontend-preact/node_modules/@biomejs/biome/bin/biome" ]]; then
-	printf 'Installing frontend dependencies...\n'
-	npm install --no-bin-links --prefix "$ROOT_DIR/frontend-preact"
-fi
-
 printf 'Building frontend and desktop application...\n'
 v run build.vsh
 

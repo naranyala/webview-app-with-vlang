@@ -1,48 +1,75 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
+import {
+  advanceAssetScanJob,
+  completeAssetScanJob,
+  createAssetScanJob,
+  MOCK_VOLUMES,
+  summarizeAssets
+} from '../assets.mjs';
+import { backend } from '../backend.js';
 import { styles, stylex } from '../stylex.js';
 
 const diskVolumes = [
   {
-    id: 'main',
-    name: 'Main drive',
-    path: '/',
-    used: '714 GB',
+    id: 'projects',
+    name: 'Blender Projects',
+    path: '~/projects',
+    used: '182 GB',
     total: '1 TB',
-    percent: 71
+    percent: 18
   },
   {
-    id: 'archive',
-    name: 'Archive',
-    path: '/mnt/archive',
-    used: '1.8 TB',
-    total: '4 TB',
-    percent: 45
-  },
-  {
-    id: 'backup',
-    name: 'Backup disk',
-    path: '/mnt/backup',
-    used: '286 GB',
+    id: 'samples',
+    name: 'Sample Library',
+    path: '~/samples',
+    used: '96 GB',
     total: '500 GB',
-    percent: 57
+    percent: 19
+  },
+  {
+    id: 'renders',
+    name: 'Renders',
+    path: '~/renders',
+    used: '286 GB',
+    total: '1 TB',
+    percent: 28
   }
 ];
 
 const diskFolders = [
-  { name: 'Projects', size: '182.4 GB', percent: 83 },
-  { name: 'Media', size: '96.8 GB', percent: 58 },
-  { name: 'Applications', size: '74.2 GB', percent: 42 },
-  { name: 'System', size: '38.6 GB', percent: 25 }
+  { name: 'Blender scenes', size: '182.4 GB', percent: 83 },
+  { name: 'Samples', size: '96.8 GB', percent: 58 },
+  { name: 'Renders', size: '74.2 GB', percent: 42 },
+  { name: 'References', size: '38.6 GB', percent: 25 }
 ];
 
 export function DiskScanner() {
-  const [selectedVolumeId, setSelectedVolumeId] = useState('main');
+  const [selectedVolumeId, setSelectedVolumeId] = useState('projects');
   const [diskScanState, setDiskScanState] = useState('idle');
   const [diskScanProgress, setDiskScanProgress] = useState(0);
+  const [scanJob, setScanJob] = useState(null);
+  const [nativeVolumes, setNativeVolumes] = useState(null);
   const timerRef = useRef(null);
-  const selectedVolume = diskVolumes.find(
-    (volume) => volume.id === selectedVolumeId
-  );
+  const selectedVolume =
+    (nativeVolumes || diskVolumes).find(
+      (volume) => volume.id === selectedVolumeId
+    ) || diskVolumes[0];
+  const assetSummary = summarizeAssets(scanJob?.topEntries || []);
+
+  useEffect(() => {
+    let active = true;
+    backend
+      .listVolumes()
+      .then((volumes) => {
+        if (active && Array.isArray(volumes) && volumes.length > 0) {
+          setNativeVolumes(volumes);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(
     () => () => {
@@ -55,14 +82,22 @@ export function DiskScanner() {
     if (diskScanState === 'scanning') return;
     setDiskScanState('scanning');
     setDiskScanProgress(0);
+    let job = createAssetScanJob(selectedVolumeId);
+    setScanJob(job);
     let progress = 0;
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
       progress += 20;
+      job = advanceAssetScanJob(job, [
+        { path: `projects/shot-${progress}.blend`, size: 42000000 },
+        { path: `samples/kick-${progress}.wav`, size: 8000000 }
+      ]);
+      setScanJob({ ...job });
       setDiskScanProgress(progress);
       if (progress >= 100) {
         clearInterval(timerRef.current);
         timerRef.current = null;
+        setScanJob(completeAssetScanJob(job));
         setDiskScanState('complete');
       }
     }, 140);
@@ -72,15 +107,18 @@ export function DiskScanner() {
     <section className={stylex.props(styles.toolPage).className}>
       <div className={stylex.props(styles.toolHeading).className}>
         <div>
-          <p className={stylex.props(styles.eyebrow).className}>Storage</p>
+          <p className={stylex.props(styles.eyebrow).className}>
+            Studio assets
+          </p>
           <h1 className={stylex.props(styles.headingTitle).className}>
-            Disk Scanner
+            Asset Scanner
           </h1>
           <p className={stylex.props(styles.headingText).className}>
-            Check usage, then scan a volume.
+            Index Blender scenes, samples, and renders without leaving the
+            desktop. Native volume enumeration lights up inside the V shell.
           </p>
         </div>
-        <span className={stylex.props(styles.mockBadge).className}>Mock</span>
+        <span className={stylex.props(styles.mockBadge).className}>Local</span>
       </div>
 
       <div
@@ -156,7 +194,9 @@ export function DiskScanner() {
                 : 'Start mock scan'}
           </button>
           <p className={stylex.props(styles.panelNote).className}>
-            Mock data only. No files are read.
+            {scanJob
+              ? `${scanJob.scannedFiles} indexed · ${assetSummary.blender} Blender · ${assetSummary.audio} audio · ${assetSummary.render} renders`
+              : `Targets: ${MOCK_VOLUMES.map((volume) => volume.name).join(' · ')}. Native scan jobs land here next.`}
           </p>
         </div>
 

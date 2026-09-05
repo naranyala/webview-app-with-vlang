@@ -175,3 +175,35 @@ export function parseQuizPayloadValue(value) {
   const result = quizPayloadSchema.safeParse(value);
   return result.success ? result.data : undefined;
 }
+
+const assetRecordSchema = z.object({
+  id: z.string().min(1),
+  path: z.string().min(1),
+  kind: z.string().default('other'),
+  size: z.number().default(0),
+  updated: z.string().default('')
+});
+
+export function parseAssetRecords(value) {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    const result = assetRecordSchema.safeParse(item);
+    return result.success ? [result.data] : [];
+  });
+}
+
+const audioFeatureSchema = z.object({
+  path: z.string().min(1),
+  tempo: z.number().positive(),
+  key: z.string().default('Unknown'),
+  loudnessDb: z.number().default(0),
+  durationSec: z.number().default(0)
+});
+
+export function parseAudioFeatureRecords(value) {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    const result = audioFeatureSchema.safeParse(item);
+    return result.success ? [result.data] : [];
+  });
+}

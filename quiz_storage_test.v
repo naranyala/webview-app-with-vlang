@@ -66,6 +66,19 @@ fn test_quiz_store_crud_and_persistence() {
 	}
 	assert updated_collection.title == 'Renamed collection'
 
+	mut snapshot := store.list() or {
+		assert false, err.msg()
+		return
+	}
+	snapshot[1].title = 'Mutated snapshot'
+	snapshot[1].questions << QuizQuestion{
+		id:       'snapshot-only'
+		question: 'Not persisted?'
+		answer:   'Correct.'
+	}
+	assert store.collections[1].title != 'Mutated snapshot'
+	assert store.collections[1].questions.len == 1
+
 	without_question := store.delete_question(json.encode(QuizQuestionRequest{
 		collection_id: created.id
 		id:            question_id
@@ -102,5 +115,34 @@ fn test_quiz_validation_rejects_empty_question() {
 		assert false, 'empty question should fail validation'
 	} else {
 		assert err.msg() == 'Quiz question and answer are required'
+	}
+}
+
+fn test_quiz_validation_rejects_duplicate_ids() {
+	duplicate := QuizCollection{
+		id:          'collection-1'
+		title:       'Duplicate collection'
+		description: ''
+		tone:        'blue'
+		level:       'Test'
+		questions:   [
+			QuizQuestion{
+				id:       'question-1'
+				topic:    'Test'
+				question: 'First?'
+				answer:   'First.'
+			},
+			QuizQuestion{
+				id:       'question-1'
+				topic:    'Test'
+				question: 'Second?'
+				answer:   'Second.'
+			},
+		]
+	}
+	if _ := normalize_collections([duplicate]) {
+		assert false, 'duplicate question ids should fail validation'
+	} else {
+		assert err.msg() == 'Duplicate quiz question id'
 	}
 }

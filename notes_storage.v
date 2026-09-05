@@ -11,6 +11,7 @@ const max_note_title_len = 200
 const max_note_id_len = 200
 const max_note_tag_len = 64
 const max_note_body_len = 512 * 1024
+const max_notes_database_bytes = 64 * 1024 * 1024
 
 struct Note {
 mut:
@@ -42,31 +43,29 @@ struct UpdateNoteInput {
 
 struct NoteStore {
 mut:
-	path  string
-	notes []Note
+	path    string
+	notes   []Note
 	counter u64
-	mutex sync.Mutex
+	mutex   sync.Mutex
 }
 
 fn new_note_store() !NoteStore {
-	mut base_dir := os.getenv('WEBVIEW_APP_DATA_DIR')
-	if base_dir.len == 0 {
-		base_dir = os.config_dir()!
-	}
-	storage_dir := os.join_path(base_dir, 'webview-app')
-	os.mkdir_all(storage_dir)!
+	storage_dir := application_storage_dir()!
 	return init_note_store(os.join_path(storage_dir, 'notes.json'))
 }
 
 fn init_note_store(path string) !NoteStore {
-	mut store := NoteStore{path: path}
+	mut store := NoteStore{
+		path: path
+	}
 	if !os.exists(path) {
 		return store
 	}
 	raw := os.read_file(path) or { return error('Note storage could not be read') }
-	database := json.decode(NotesDatabase, raw) or {
-		return error('Note storage is corrupt')
+	if raw.len > max_notes_database_bytes {
+		return error('Note storage is too large')
 	}
+	database := json.decode(NotesDatabase, raw) or { return error('Note storage is corrupt') }
 	if database.version != notes_schema_version {
 		return error('Note storage uses an unsupported schema')
 	}
@@ -74,10 +73,23 @@ fn init_note_store(path string) !NoteStore {
 		return error('Note storage contains too many notes')
 	}
 	store.counter = database.counter
-	for note in database.notes {
-		store.notes << validate_note(note)!
-	}
+	store.notes = validate_notes(database.notes)!
 	return store
+}
+
+fn validate_notes(notes []Note) ![]Note {
+	mut normalized := []Note{}
+	for note in notes {
+		normalized << validate_note(note)!
+	}
+	for index, note in normalized {
+		for previous_index in 0 .. index {
+			if normalized[previous_index].id == note.id {
+				return error('Duplicate note id')
+			}
+		}
+	}
+	return normalized
 }
 
 fn validate_note(note Note) !Note {
@@ -151,7 +163,7 @@ fn (mut store NoteStore) create(input NoteInput) !Note {
 	previous_counter := store.counter
 	store.counter++
 	note := Note{
-		id:      'note-${time.now().unix()}-${previous_counter}'
+			id:      'note-${time.now().unix_nano()}-${previous_counter}'
 		title:   input.title.trim_space()
 		tag:     if input.tag.trim_space().len > 0 { input.tag.trim_space() } else { 'Draft' }
 		updated: 'Just now'

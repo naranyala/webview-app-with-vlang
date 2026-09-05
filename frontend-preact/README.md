@@ -1,9 +1,8 @@
-# Canonical Preact Frontend
+# Studio Preact Frontend
 
-This directory contains the current frontend for the V WebView application. It
+This directory contains the studio frontend for the V WebView application. It
 uses Preact, esbuild, and StyleX and produces the single-file asset served by
-the native V process. The Svelte application in `../ui/` is retained only as a
-legacy reference.
+the native V process for Blender and MIR workflows.
 
 ## Commands
 
@@ -28,11 +27,14 @@ uses the StyleX esbuild plugin and inlines generated CSS and JavaScript into
 
 ## Tools
 
-The Preact registry currently contains Disk Scanner, Audio Equalizer, Chain
-Notes, Todos, Quiz, and Academic Paper. Disk Scanner and Audio Equalizer are
-UI prototypes with mock data. Quiz uses the V bridge in the native shell and a
-browser fallback during development. Chain Notes, Todos, and Academic Paper
-keep their current data in browser `localStorage`.
+The registry currently contains Asset Scanner, MIR Workbench, Production Log,
+Shots & Tasks, Drills, Research Desk, MIR Lab, and Blender Studio.
+Asset Scanner and MIR Workbench use
+native-validated contracts with local simulation until filesystem traversal and
+measured DSP land. Drills uses the V bridge in the native shell with a browser
+fallback. Production Log, Shots & Tasks, Research Desk, studio assets, and
+audio features use the versioned browser IndexedDB adapter, with a one-time
+`localStorage` migration and fallback when IndexedDB is unavailable.
 
 See the repository documentation for the complete runtime, bridge, storage,
 and release model: [`../docs/`](../docs/).

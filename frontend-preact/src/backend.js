@@ -40,7 +40,14 @@ const NATIVE_BINDINGS = [
   'quiz_delete_collection',
   'quiz_create_question',
   'quiz_update_question',
-  'quiz_delete_question'
+  'quiz_delete_question',
+  'list_volumes',
+  'start_asset_scan',
+  'get_asset_scan_status',
+  'cancel_asset_scan',
+  'get_audio_metadata',
+  'analyze_audio',
+  'mir_analyze'
 ];
 
 export class BackendError extends Error {
@@ -336,6 +343,80 @@ export const backend = {
     callQuizBinding('quiz_update_question', question),
   quizDeleteQuestion: (question) =>
     callQuizBinding('quiz_delete_question', question),
+  listVolumes: async () => {
+    if (!hasBinding('list_volumes')) return undefined;
+    return parseJsonData(await callBinding('list_volumes'), 'list_volumes');
+  },
+  startAssetScan: async (path) => {
+    if (!hasBinding('start_asset_scan')) return undefined;
+    return parseJsonData(
+      await callBinding('start_asset_scan', path),
+      'start_asset_scan'
+    );
+  },
+  getAssetScanStatus: async (jobId) => {
+    if (!hasBinding('get_asset_scan_status')) return undefined;
+    return parseJsonData(
+      await callBinding('get_asset_scan_status', jobId),
+      'get_asset_scan_status'
+    );
+  },
+  cancelAssetScan: async (jobId) => {
+    if (!hasBinding('cancel_asset_scan')) return undefined;
+    return unwrapBridge(
+      await callBinding('cancel_asset_scan', jobId),
+      'cancel_asset_scan'
+    );
+  },
+  getAudioMetadata: async (path) => {
+    if (!hasBinding('get_audio_metadata')) return undefined;
+    return parseJsonData(
+      await callBinding('get_audio_metadata', path),
+      'get_audio_metadata'
+    );
+  },
+  analyzeAudio: async (path) => {
+    if (!hasBinding('analyze_audio')) {
+      const { MOCK_AUDIO_FEATURES } = await import('./mir.mjs');
+      return MOCK_AUDIO_FEATURES;
+    }
+    return parseJsonData(
+      await callBinding('analyze_audio', path),
+      'analyze_audio'
+    );
+  },
+  mirAnalyze: async (samples, sampleRate) => {
+    const { analyzeSamples, validateMirInput } = await import('./mir.mjs');
+    const invalid = validateMirInput(samples, sampleRate);
+    if (invalid) {
+      throw new BackendError(invalid, {
+        code: 'backend_invalid_payload',
+        binding: 'mir_analyze'
+      });
+    }
+    if (!hasBinding('mir_analyze')) return analyzeSamples(samples, sampleRate);
+    const raw = await callBinding(
+      'mir_analyze',
+      JSON.stringify({ samples, sample_rate: sampleRate })
+    );
+    const value = parseJsonData(raw, 'mir_analyze');
+    const numeric = ['rms', 'peak', 'zcr', 'duration_seconds'].every(
+      (key) => typeof value?.[key] === 'number' && Number.isFinite(value[key])
+    );
+    if (
+      !value ||
+      typeof value !== 'object' ||
+      !numeric ||
+      !Number.isInteger(value.sample_count) ||
+      !Number.isInteger(value.sample_rate)
+    ) {
+      throw new BackendError('Invalid MIR features received from mir_analyze', {
+        code: 'backend_invalid_payload',
+        binding: 'mir_analyze'
+      });
+    }
+    return value;
+  },
   minimizeWindow: () =>
     callBinding('minimize_window').then((raw) =>
       unwrapBridge(raw, 'minimize_window')

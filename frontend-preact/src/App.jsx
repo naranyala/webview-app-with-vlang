@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'preact/hooks';
+import { flushRegisteredAutosaves } from './autosave.mjs';
 import { backend, backendError } from './backend.js';
 import { BackendStatus } from './backend-status.jsx';
 import { ErrorBoundary } from './error-boundary.jsx';
@@ -6,12 +7,14 @@ import { frontendPlugins, getFrontendPlugin } from './plugins/index.js';
 import { styles, stylex } from './stylex.js';
 
 const TAB_SHORT = {
-  disk: 'Disk',
-  equalizer: 'EQ',
-  notes: 'Notes',
-  todos: 'Todos',
-  quiz: 'Quiz',
-  paper: 'Paper'
+  disk: 'Assets',
+  equalizer: 'MIR',
+  notes: 'Log',
+  todos: 'Shots',
+  quiz: 'Drills',
+  paper: 'Research',
+  mir: 'MIR',
+  blender: 'Blend'
 };
 
 const TAB_GLYPH = {
@@ -20,7 +23,9 @@ const TAB_GLYPH = {
   notes: '✎',
   todos: '✓',
   quiz: '?',
-  paper: '▤'
+  paper: '▤',
+  mir: '∿',
+  blender: '⬢'
 };
 
 const TOOLS_GROUP_IDS = ['disk', 'equalizer'];
@@ -30,20 +35,20 @@ const TODO_GROUP_ID = 'todos';
 const QUIZ_MENU_ITEMS = [
   {
     id: 'session',
-    title: 'Quiz Session',
-    description: 'Practice cards and track what you know.'
+    title: 'Drill Session',
+    description: 'Practice Blender, DSP, and theory cards.'
   },
   {
     id: 'editor',
-    title: 'Quiz Editor',
-    description: 'Add your own questions to a local collection.'
+    title: 'Drill Editor',
+    description: 'Add your own studio questions to a local deck.'
   }
 ];
 const PAPER_MENU_ITEMS = [
   {
     id: 'reader',
     title: 'Reader',
-    description: 'Read and export the active paper.'
+    description: 'Read MIR and 3D papers and export the active doc.'
   },
   {
     id: 'references',
@@ -59,13 +64,13 @@ const PAPER_MENU_ITEMS = [
 const TODO_MENU_ITEMS = [
   {
     id: 'list',
-    title: 'Todo List',
-    description: 'Capture and complete the work in front of you.'
+    title: 'Shot List',
+    description: 'Capture shots, mixes, and release tasks.'
   },
   {
     id: 'calendar',
     title: 'Calendar',
-    description: 'Pick a month and see scheduled todos by day.'
+    description: 'Pick a month and see scheduled studio work by day.'
   }
 ];
 
@@ -189,7 +194,15 @@ export function App() {
         windowMaximized ? backend.restoreWindow() : backend.maximizeWindow(),
       () => setWindowMaximized((value) => !value)
     );
-  const closeWindow = () => runWindowAction(() => backend.closeWindow());
+  const closeWindow = () =>
+    runWindowAction(async () => {
+      if (!(await flushRegisteredAutosaves())) {
+        throw new Error(
+          'Pending changes could not be saved. Window remains open.'
+        );
+      }
+      await backend.closeWindow();
+    });
 
   const sideBar = (
     <>
@@ -526,10 +539,11 @@ export function App() {
 
         <main {...stylex.props(styles.launcherMain)}>
           <div {...stylex.props(styles.launcherHead)}>
-            <p {...stylex.props(styles.eyebrow)}>Toolkit</p>
-            <h1 {...stylex.props(styles.pageTitle)}>Tools</h1>
+            <p {...stylex.props(styles.eyebrow)}>Offline studio</p>
+            <h1 {...stylex.props(styles.pageTitle)}>Studio</h1>
             <p {...stylex.props(styles.lede)}>
-              {frontendPlugins.length} small utilities. Pick one to start.
+              {frontendPlugins.length} local tools for Blender and audio work.
+              Pick one to start.
             </p>
           </div>
 

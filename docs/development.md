@@ -11,8 +11,10 @@ cd frontend-preact
 npm ci --no-bin-links
 ```
 
-If the lockfile cannot be used in a particular native environment, the V build
-script falls back to `npm install --no-bin-links`.
+Root build and test commands install with `npm ci --no-bin-links` every time.
+A stale or incomplete installation is replaced from the lockfile; installation
+failure stops the command instead of silently changing dependencies. Direct
+frontend commands reuse the installed dependencies for faster iteration.
 
 ## Run
 
@@ -48,16 +50,23 @@ v run build.vsh test
 The command runs:
 
 - `npm run check --prefix frontend-preact`
+- `npm run check:bindings --prefix frontend-preact`
 - `npm test --prefix frontend-preact`
 - `v test bridge_test.v`
 - `v test plugins_test.v`
 - `v test server_test.v`
 - `v test quiz_storage_test.v`
+- `v test notes_storage_test.v`
+- `v test storage_paths_test.v`
+- `v test studio_test.v`
+- `v test log_test.v`
 
-The frontend test suite covers bridge parsing, fuzzy search, and Academic Paper
-model normalization, IndexedDB migration, and Blob asset persistence. Backend
-tests cover bridge validation/serialization, plugin registration, static-server
-behavior, traversal protection, and Quiz storage CRUD.
+The frontend test suite covers bridge parsing, asset/MIR contracts, fuzzy
+search, and Academic Paper model normalization, IndexedDB migration, and Blob
+asset persistence. Backend tests cover bridge validation/serialization, plugin
+registration, static-server behavior, traversal protection, Notes/Quiz storage
+CRUD and shared directory overrides, and studio volume/audio validation.
+Autosave tests cover navigation, unmount, write ordering and failure recovery.
 
 ## Dependency Decisions
 
@@ -70,10 +79,8 @@ authority for native writes.
 
 `dexie@^4.4.5` is used by `frontend-preact/src/storage.mjs` for the version-1
 `webview-app` IndexedDB database. It is Apache-2.0, has no native dependency or
-network behavior, and keeps Quiz in the separate V-backed JSON store. The
-current generated single-file build is 2,351,213 bytes; that size includes the
-existing PDF dependencies and is recorded as a baseline for future bundle
-measurement. `fake-indexeddb@^6.2.5` is dev-only test infrastructure and is not
+network behavior, and keeps Quiz in the separate V-backed JSON store. The generated single-file size should be measured after dependency changes;
+PDF libraries contribute substantially to the bundle. `fake-indexeddb@^6.2.5` is dev-only test infrastructure and is not
 bundled.
 
 ## Build Output
@@ -84,7 +91,7 @@ generated frontend to `frontend-preact/dist/`, including a self-contained
 copy user data into the frontend directory.
 
 The `build.vsh ui` command name is retained for compatibility, but it builds the
-Preact frontend, not the legacy Svelte UI.
+Preact studio frontend.
 
 ## Release Checklist
 
@@ -95,9 +102,8 @@ automated in CI:
 - Run `v run build.vsh test` and `v run build.vsh`.
 - Test the native WebView and window controls on the target platform.
 - Confirm the local server serves only the generated frontend.
-- Test Quiz persistence and browser-local exports.
+- Test Notes/Quiz persistence, rapid note edits/navigation, native PDF saves and browser exports.
 - Use `debug: false` for a release build and document platform packaging.
 
 Installers, platform-specific native implementations, CSP, graceful shutdown,
-and CI release checks remain future work. The legacy Svelte build files should
-not be treated as the current release path.
+and CI release checks remain future work.

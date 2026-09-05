@@ -1,401 +1,344 @@
-# Development TODOs
+# Implementation Backlog — Offline Studio for Blender + MIR
 
-The active frontend is `frontend-preact/`. The `ui/` Svelte application is kept
-only as a legacy reference until it is archived or removed.
+Reconciled against source on 2026-09-05. This is the current tracker. Checked
+items mean implemented; verification results are recorded at the bottom.
+The [historical backlog](docs/backlog-history.md) preserves pre-studio ideas
+without treating stale checkboxes as truth.
 
-## Third-Party Dependency Adoption Plan
+Focus: a local-first desktop companion for Blender 3D editing and audio/Music
+Information Retrieval work. Everything below serves capture → analyze → recall
+for `.blend`, renders, samples, and research — with no cloud dependency.
 
-The project should add dependencies only when they remove a concrete reliability
-or capability gap. Every addition must support the Preact/esbuild single-file
-build, preserve browser development without the native shell, have a compatible
-license, and be covered by a focused test or benchmark.
+## Current Capability Map
 
-### Phase 1: Validate and Test the Existing Local-First Core
+| Tool | Working today | Remaining boundary |
+| --- | --- | --- |
+| Production Log | Native JSON CRUD, browser IndexedDB fallback, search, Q&A import, Markdown and PDF/print | No browser/native migration or close/crash recovery |
+| Shots & Tasks | Editing, completion, filters, due dates, calendar, IndexedDB | No native repository or synchronization |
+| Drills | Native collection/question CRUD, practice and editing | Browser changes and practice progress are not durable |
+| Research Desk | Structured reader, references/citations, image library, statistics, PDF/print | No imported-PDF reader; figures omitted from exported document |
+| Asset Scanner | Studio volumes, local job states, Blender/audio/render classification | No real filesystem traversal, SQLite cache, or cancellation service yet |
+| MIR Workbench | Bands/presets plus tempo/key/loudness/chroma summaries and mix scoring | No playback device, decoding, or measured DSP yet |
+| MIR Lab | Native V RMS/peak/ZCR core with JS mirror, demo tone + file analysis, log export | No FFT yet; chroma/tempo stay placeholder |
+| Blender Studio | Scene/engine/stage tracking with validation, persistence, log export | No native scene store or `.blend` header parsing yet |
 
-- [x] Add `zod` for runtime validation of persisted frontend documents and
-  bridge-facing payloads.
-- [x] Centralize schemas for Todos, Chain Notes, Academic Papers, and Quiz
-  payloads instead of duplicating ad hoc field checks.
-- [x] Keep V-side validation authoritative for native Quiz writes; frontend
-  schemas must not be treated as a security boundary.
-- [x] Add migration-safe parsing tests for missing, malformed, and legacy fields.
-- [ ] Add `@testing-library/preact`, `@testing-library/dom`, and `vitest` only
-  after the first component interaction needs DOM coverage.
-- [ ] Cover Todo Calendar, Paper submenu navigation, Reference Manager, and
-  export error states with component tests.
+## P0 — Data Safety and Build Reliability
 
-### Phase 2: Replace Browser Storage with IndexedDB
+- [x] R01: Flush pending native note edits on selection and component unmount.
+  Serialize writes so a slower old write cannot overtake a newer write within
+  the workspace. Add navigation, unmount, ordering and error regression tests.
+- [ ] R02: Add application-wide save coordination and close protection. Native
+  close now awaits registered workspace flushers, but still needs dirty/saving/
+  failed states, explicit retry, and crash recovery. Recover a local draft after
+  crashes; test rapid workspace reopening, closing during save, backend timeout,
+  and disk-full failures.
+- [x] R03: Use `npm ci --no-bin-links` consistently in root build/test commands;
+  remove silent `npm install` fallback and the incomplete-node_modules shortcut.
+  `run.sh` delegates installation to the same build path.
+- [x] R04: Make `build.vsh run` execute the built binary as documented.
+- [x] R05: Resolve both native stores through `storage_paths.v`. Preserve default
+  config paths and apply `WEBVIEW_APP_DATA_DIR` to Notes and Quiz; test isolation.
+- [ ] R06: Harden native persistence. This pass added nanosecond-based generated
+  IDs, duplicate-ID validation, defensive Quiz list snapshots, and pre-decode
+  size limits. Remaining work is safe concurrent instances, unique temporary
+  files, explicit durability guarantees, and broader failure tests.
+- [ ] R07: Recover storage failures without silently losing newer data. Show
+  IndexedDB/fallback mode, quota/migration errors and retry controls; reconcile
+  fallback writes before returning to IndexedDB. Test corruption, failed migration,
+  empty collections, large audio assets and restore from the retained legacy backup.
+- [ ] R08: Define native/browser import policy. Provide preview, backup, explicit
+  conflict handling, repeatable IDs and idempotent imports. Never overwrite the
+  native store automatically just because browser records exist.
+- [ ] R09: Add studio session memory: reopen the last shot, sample, scroll position,
+  and workspace; show a topbar dirty/saving/failed pill wired to the autosave
+  registry; keep a crash-draft for the Production Log.
 
-- [x] Add `dexie` for transactional browser storage of Todos, Chain Notes,
-  Academic Papers, references, and image asset metadata.
-- [x] Define one database name, schema version, table indexes, and upgrade
-  handlers in a dedicated frontend storage module.
-- [x] Migrate existing `localStorage` records once and keep an explicit import
-  backup until migration is verified.
-- [x] Store image binary data as `Blob` values rather than base64 data URLs.
-- [ ] Add quota, corruption, and migration failure states to the UI.
-- [x] Keep the V-backed Quiz JSON store separate until a deliberate backend
-  storage unification is implemented.
+## P1 — Runtime and Bridge Correctness
 
-### Phase 3: Make Research Content Safe and Useful
+- [x] N01: Keep V bridge registration, adapter and declarations aligned (29 names,
+  including studio volumes, asset-scan jobs, audio metadata, placeholder spectral
+  features, and real time-domain `mir_analyze`).
+- [x] N02: Retain argument validation, structured errors, status checks and an
+  eight-second frontend timeout; counter and bridge helpers have tests.
+- [ ] N03: Centralize the bridge method contract with request/response schemas,
+  stable error codes and version/capability metadata. Check actual signatures and
+  reject malformed object as well as string payloads. Cover every binding end to
+  end, including the six new studio bindings.
+- [ ] N04: Make strict browser mode consistent across every adapter method. Use
+  one timestamp format and distinguish unavailable, mocked and native capabilities.
+  Refresh status fields independently so a partial failure preserves useful data.
+- [x] N05: Serve loopback-only frontend files with method checks, decoding, MIME
+  types and traversal protection. HEAD responses now omit success and error bodies.
+- [ ] N06: Own the HTTP server lifecycle in the application. Require a successful
+  response from this launch in the readiness probe; surface bind conflicts and
+  bound startup time. Stop/join the server on exit and handle termination signals.
+- [ ] N07: Make port, development URL, window settings and asset location explicit
+  runtime configuration. Verify moved binaries, missing index.html, occupied ports
+  and independent development checkouts.
+- [ ] N08: Validate WebView creation; consolidate GTK dispatch and implement/test
+  native window controls on macOS and Windows.
+- [ ] N09: Define external navigation policy and CSP compatible with inline bundles,
+  StyleX, Blob images and PDF rendering; add localhost origin/token protection as
+  part of server identity work.
+- [ ] N10: Add log levels and diagnostic output with actionable storage/startup
+  failures. Avoid logging private note bodies.
 
-- [ ] Add `DOMPurify` and a strict allowlist before rendering any generated or
-  imported HTML.
-- [ ] Add `marked` or `micromark` for Markdown rendering only after sanitization
-  is in place.
-- [ ] Add `Citation.js` for BibTeX, CSL, and DOI import/export in Reference
-  Manager.
-- [ ] Add `browser-image-compression` for client-side figure resizing before
-  IndexedDB storage.
-- [ ] Add `fflate` for local backup/import archives containing all frontend data.
-- [ ] Add `pdfjs-dist` only when imported PDF preview/text extraction is required.
-- [ ] Add `pdf-lib` only when merging assets, metadata, or multiple PDFs is
-  required beyond the existing print/html2pdf path.
+## P1 — Studio Tools (Blender + MIR first)
 
-### Phase 4: Implement Native Capabilities
+- [ ] T01: Persist browser Drill decks and session progress through a repository;
+  seed Blender-shortcut, VSE-editing, interval/chord, and tempo decks. Test reload
+  and workspace switching.
+- [ ] T02: Add a native Shots repository for Blender shots and mix tasks only after
+  the migration policy (R08) is set. Preserve IDs, due dates and completed states.
+- [ ] T03: Finish Production Log workflow: retry/save status, shot-linked entries,
+  Markdown/plain-text file import, and chained-note export. Preserve paste import
+  and delete behavior.
+- [ ] T04: Cover Drills editing/session navigation, Research Desk submenus,
+  Reference Manager, image upload/remove, calendar interaction, Asset Scanner
+  progress, MIR analysis/error states, and export failures with component tests.
+- [ ] T05: Add shared accessible field/error/status/button components where repeated
+  behavior warrants them. Audit keyboard navigation, focus restoration and narrow
+  windows.
+- [ ] T06: Decide Research Desk import scope: the structured sample reader is not a
+  general PDF reader. An empty library needs a supported create/import path before
+  the MIR literature workflow is declared complete.
+- [ ] T07: Add studio navigation convenience: `Ctrl+K` command palette jumping to
+  shots, samples, papers, and drills, plus deep-linkable hash routes so views can
+  be shared from screen recordings and notes.
 
-- [ ] Add `ttytm/dialog` for cross-platform file, directory, save, and message
-  dialogs.
-- [ ] Add `larpon/miniaudio` only when Audio Equalizer scope becomes a real local
-  player; verify native build requirements on every target platform.
-- [ ] Add `vsl`/FFT support only when real audio analysis or signal processing
-  is implemented.
-- [ ] Add `v-mime` for authoritative native file-type detection when imports
-  move into V.
-- [ ] Add a file watcher such as `vmon` only for an explicit watched-directory
-  workflow.
-- [ ] Prefer V's built-in `db.sqlite` over a third-party ORM; add `vsql` only if
-  query composition becomes a demonstrated maintenance problem.
+## P1 — Export, Assets and Backup
 
-### Phase 5: Performance and Product Polish
+- [ ] E01: Define an export document model shared by preview, print and PDF
+  rendering, plus studio cue sheets / shot lists. Preserve citation numbering,
+  headings, lists and code blocks across renderers.
+- [ ] E02: Connect figures to paper sections and include them with captions in print
+  and download output. Verify corrupt/large images, sizing and multi-page output.
+- [ ] E03: Add a native save dialog with cancellation and chosen destination; preserve
+  the current Documents export until the replacement is tested on target platforms.
+- [ ] E04: Implement versioned backup/import archives for production logs, shots,
+  drills, papers, references, studio assets, audio features and Blobs. Preview
+  import, validate limits, back up current data, test restore into an empty profile.
+- [ ] E05: Add reference import/export (BibTeX/CSL) for MIR literature when formats
+  are chosen. Include citation-key search and a "cite this paper in Production
+  Log" action. Keep generated HTML escaped or sanitize before rendering.
+- [ ] E06: Export studio cue sheets (PDF/CSV) and Blender VSE edit lists from the
+  shared export document model, reusing shot timings and audio-feature metadata.
 
-- [ ] Add `@preact/signals` only when state must be shared across independent
-  plugin surfaces.
-- [ ] Add `@tanstack/virtual-core` only after a measured large-library rendering
-  bottleneck appears.
-- [ ] Add `lucide-preact` if the current text glyph controls cannot meet icon,
-  consistency, or accessibility needs.
-- [ ] Add `@floating-ui/dom` only for tooltips, popovers, or menus that exceed
-  native flow layout.
+## P2 — Real Asset Scanner (Before Full MIR DSP)
 
-### Dependency Review Checklist
+- [ ] D01: Define Blender/sample/render volume and directory-selection contracts;
+  implement Linux first, then macOS/Windows capacity wrappers and native dialogs.
+- [ ] D02: Implement a bounded background job service with IDs, state transitions,
+  cancellation, throttled progress, errors and cleanup. Keep work off the UI thread.
+- [ ] D03: Scan a selected root using V filesystem APIs; aggregate bytes, sort largest
+  entries, classify `.blend`/audio/render files, handle permissions, symlink cycles
+  and disappearing files. Test on fixture trees including unreadable paths.
+- [x] D04 (partial): `list_volumes`, `start_asset_scan`, `get_asset_scan_status`,
+  `cancel_asset_scan` contracts, validation, adapter methods and local UI states
+  exist. Still needs real traversal, adapter tests against native jobs, and error
+  states wired to the service in D02/D03.
+- [ ] D05: Remove simulated batches from native mode after fixture and manual
+  large-library validation. Add SQLite caching only after a measured requirement.
+- [ ] D06: Make the scanner Blender-aware: parse `.blend` headers for version,
+  index linked libraries, capture render thumbnails, reveal entries in the file
+  manager, and persist per-project shot lists (`shots.json`) with stable IDs.
 
-- [ ] Record package version, license, bundle-size impact, native dependencies,
-  and reason for adoption in the relevant documentation.
-- [x] Run `npm ci --no-bin-links`, frontend checks, frontend tests, and the
-  production single-file build after every dependency change.
-- [x] Verify that the dependency does not access the network or weaken the
-  local-first privacy model without an explicit product decision.
-- [ ] Remove a dependency if a small local implementation is clearer, smaller,
-  or more reliable for the current scope.
+## P2 — Real MIR Workbench
 
-## Phase 1: Stabilize Foundation
+- [ ] A01: Confirm application-local player scope and supported codecs/platforms;
+  leave system-wide processing as a separate future project.
+- [ ] A02: Choose/package an audio backend after a build/license check; implement
+  file selection, decoding, device initialization, play/pause/stop and cleanup.
+- [ ] A03: Implement one biquad band, test its frequency response, then expand to
+  seven bands with gain limits, presets and safe real-time parameter updates.
+- [ ] A04: Bind playback state, position, duration and optional peak/RMS meters;
+  debounce controls and test unsupported formats, missing devices and track switching.
+- [x] A05 (partial): Real time-domain `mir_analyze` core (V `mir_core.v` +
+  JS mirror, bounded windows, parity tests) is done; `get_audio_metadata` /
+  `analyze_audio` placeholder contracts, mock spectral documents, mix-similarity
+  scoring and feature persistence remain until measured tempo/key/chroma/MFCC DSP
+  and level meters land.
+- [ ] A06: Build MIR convenience views: waveform + spectrogram/chromagram canvas,
+  loop region with A/B compare, BPM/key library filtering, near-duplicate detection
+  via MFCC distance, and auto-tag sidecar JSON for samples.
 
-- [x] Add a backend configuration layer for ports, dev mode, window size, and debug logging.
-- [x] Replace the fixed 300 ms server delay with a readiness check.
-- [x] Bind the production HTTP server to `127.0.0.1` instead of all interfaces.
-- [x] Prevent path traversal in `StaticHttpHandler`.
-- [x] Add backend unit tests for static-file serving and URL handling.
-- [ ] Add graceful shutdown for the HTTP server and webview.
-- [ ] Document and automate installation of `ttytm.webview` and native Linux dependencies.
-- [x] Add frontend tests or at least component-level interaction tests.
-- [x] Make frontend installation reproducible with `npm ci --no-bin-links`,
-  with a documented fallback for incomplete lockfiles or native environments.
+## P2 — Abstraction and Maintainability
 
-## Phase 2: Improve the V-to-JavaScript API
+The detailed boundaries and migration order are in
+[docs/abstraction-plan.md](docs/abstraction-plan.md). Apply these incrementally;
+keep compatibility tests around existing bridge names and persisted formats.
 
-- [ ] Create a clear API namespace instead of attaching loose functions directly to `window`.
-- [x] Add TypeScript declarations for backend methods.
-- [x] Define consistent request and response formats.
-- [x] Add structured error responses from V.
-- [x] Validate and sanitize arguments received from JavaScript.
-- [ ] Add logging levels for development and production.
-- [x] Add a health/status bridge method for frontend startup checks.
-- [ ] Add integration tests for every JavaScript-to-V binding, including
-  malformed arguments and backend failures.
+- [x] L01: Extract a pure ordered autosave coordinator with focused tests.
+- [x] L02: Share native storage-directory resolution without moving existing data.
+- [ ] L03: Introduce tool repositories (Production Log first) so components do not
+  select native versus browser persistence. Share native coordination across mounts.
+- [ ] L04: Split bridge transport from typed domain clients and browser mocks;
+  move native bindings by domain only once the contract checker is authoritative.
+- [ ] L05: Extract an atomic-file utility while preserving store-owned validation,
+  locking and rollback. Keep Notes/Quiz models separate; avoid a generic CRUD engine.
+- [ ] L06: Add AppRuntime ownership for config, server, stores, jobs and shutdown;
+  introduce platform adapters for window/dialog/volume/audio capabilities.
+- [ ] L07: Separate document normalization from renderers and export destinations.
+- [ ] L08: Add plugin lifecycle/capability metadata and enable/disable configuration
+  when needed. Defer runtime external plugins until discovery and trust are specified.
+- [ ] L09: Extract shared state, virtual lists or popovers only after a demonstrated
+  cross-component need or measured bottleneck. Keep search/PDF benchmarks as evidence.
 
-## Phase 3: Build Real Backend Features
+## P2 — Build, Packaging and Repository Hygiene
 
-- [ ] Decide where application state should live: files-first hybrid is the
-  current direction (JSON documents in the OS data dir, SQLite later only
-  for large ephemeral scan caches).
-- [x] Separate backend configuration, bridge, server, and plugin responsibilities.
-- [ ] Add persistence and migrations if data must survive restarts.
-- [ ] Add a shared `store` module: per-tool JSON documents with atomic
-  temp-file plus rename writes, one mutex per store, and a `version` field
-  per file for migrations.
-- [ ] Resolve OS directories with `os.data_dir()`, `os.config_dir()`, and
-  `os.cache_dir()`; keep all user data outside `frontend-preact/dist` so the
-  static server can never serve it.
-- [ ] Persist Chain Notes through the V backend first, then Todos, keeping
-  localStorage only as an offline fallback with backend-wins conflicts.
-- [ ] Add SQLite later only for disk scan caching and note search, with a
-  `schema_migrations` table from day one.
-- [ ] Add domain models and validation.
-- [ ] Define background-job, cancellation, and progress handling for
-  operations that may block the UI.
-- [ ] Add configuration and data-directory handling per operating system.
-- [ ] Add import/export or backup support if user data is involved.
-- [x] Add versioned V-backed JSON storage and CRUD bridge operations for Quiz.
+- [ ] B01: Pin and record a supported V/WebView/Node/native-library matrix. Verify
+  clean installation and native linking; align package metadata and dependency lists.
+- [ ] B02: CI workflow exists (deps check, `build.vsh test`, `build.vsh`); still
+  needs V formatting/vet gates and a passing clean-machine run to close out.
+- [ ] B03: Package executable plus frontend assets and native dependencies; add icons,
+  application metadata, versioning and installers. Test an installed build outside
+  the checkout on each claimed platform with production debug disabled.
+- [ ] B04: Add build `frontend` alias, explicit clean targets and test discovery.
+  Stale `public/assets/*.map` files are now auto-cleaned on non-watch builds.
+- [x] B05: Removed legacy `ui/` Svelte app and `inline.cjs`; renamed the frontend
+  package to `studio-companion-preact` and aligned the lockfile.
+- [ ] B06: Declare a project license and record dependency licenses, purpose, native
+  requirements and measured bundle impact; remove unused dependencies after review.
+- [x] B07: Reconcile current README/storage/architecture docs and preserve the old
+  backlog separately so completed work is not repeatedly proposed as missing.
 
-## Phase 4: Build the Frontend Application
+## Validation and Immediate Follow-up
 
-- [x] Replace the demo page with the Preact toolkit launcher and registered tool workflow.
-- [ ] Complete one toolkit workflow end to end with real V backend data instead of mock data.
-- [ ] Create reusable components for buttons, forms, dialogs, notifications, and loading states.
-- [x] Add a typed bridge client for all V calls.
-- [ ] Add centralized frontend state management only when multiple screens require it.
-- [x] Handle backend unavailable, timeout, and validation states.
-- [ ] Add routing if the app needs multiple screens.
-- [x] Add responsive layouts for smaller windows.
-- [x] Add keyboard navigation, visible focus states, and accessible labels.
-- [ ] Add light/dark theme support if appropriate.
-- [x] Add empty, loading, success, and error states for every major view.
+Completed implementation checkboxes above do not imply release readiness.
 
-## Phase 5: Packaging and Release
+Confirmed in this session:
 
-- [x] Decide to keep the UI as an external single-file build served by the local V HTTP server.
-- [ ] Document the frontend packaging decision and remove unused Svelte-era
-  build scripts, including `inline.cjs`.
-- [ ] Add release builds with `debug: false`.
-- [ ] Add platform-specific build scripts for Linux, Windows, and macOS.
-- [ ] Package native webview dependencies.
-- [ ] Add application icon, metadata, versioning, and installers.
-- [ ] Add CI checks for frontend formatting, frontend build, V compilation, and backend tests.
-- [ ] Add crash reporting or diagnostic logs.
-- [ ] Verify that production builds work on clean machines.
-- [ ] Verify the native shell and WebView dependencies on Linux, macOS, and Windows.
+- [x] Biome passed (52 files), and binding consistency passed (29 names).
+- [x] All 13 frontend Node test files and all 5 component tests passed, including
+  asset/MIR/blender contracts, time-domain parity, autosave, and note-navigation
+  regressions.
+- [x] Backend bridge, plugin, Notes, Quiz, shared storage-path, studio, and log
+  validation test files passed.
+- [x] `git diff --check` passed.
+- [x] Cloned the sibling's best parts: dedicated MIR Lab + Blender Studio plugins,
+  real `mir_analyze` core with JS mirror, Blender scene module, leveled logging,
+  plugin-ID validation, `tools/check-deps.sh`, CI workflow, and MIR/Blender docs.
+  Pure modules (`mir_core.v`, `mir.mjs` core, `blender.mjs`) stay UI- and
+  transport-free for the future shared C/JS libraries.
 
-## Plugin Architecture
+Finish these before treating this change as fully verified:
 
-- [x] Add a frontend plugin registry containing tool metadata and components.
-- [x] Render the active frontend tool through its registered component.
-- [x] Add separate frontend plugin components for Disk Scanner, Audio Equalizer, and Chain Notes.
-- [x] Add a backend plugin registry for registering V capabilities.
-- [x] Register the existing WebView bridge as the first backend plugin.
-- [x] Add registry tests on both frontend and backend.
-- [ ] Add plugin lifecycle hooks for initialization and cleanup.
-- [ ] Add plugin capability/version metadata.
-- [ ] Add optional plugin enable/disable configuration.
-- [ ] Add runtime plugin discovery when external plugins are required.
-- [ ] Keep frontend and backend plugin manifests aligned through shared
-  capability names or generated metadata.
+- [x] V01: Fixed Result handling in the HEAD regression test by unwrapping header
+  values before assertions. `v test server_test.v` passes.
+- [ ] V02: Verify formatting of changed V files. Run `v fmt -verify` and resolve
+  any remaining differences.
+- [ ] V03: Complete native compilation (`v -o webview-app .`).
+- [ ] V04: Exercise the revised root build/test scripts, including locked install
+  failure and `build.vsh run` using the compiled executable.
+- [ ] V05: Manually test asset-scan flows, MIR analysis states, note switching,
+  workspace reopening, failed writes, native exports and window controls in the GUI.
+- [ ] V06: Validate process-close durability and packaged cross-platform behavior
+  only after R02/N06/B03 are implemented.
 
-## Recommended First Milestone
+## Future Projection — Where This Desktop App Is Headed
 
-- [x] Secure and stabilize the V server.
-- [x] Add typed bridge declarations.
-- [x] Separate backend code into modules.
-- [x] Replace the demo UI with the Preact toolkit shell.
-- [x] Complete one real backend-connected workflow.
-- [x] Add complete error and loading states across every major view.
-- [ ] Add automated checks and a reproducible release build.
+North star: one offline window where Blender shots and audio analysis live
+together. The loop is capture → analyze → recall: log a scene or mix move,
+measure it locally, find it again in seconds, export it as a cue sheet, PDF,
+or edit list. No account, no upload, no network dependency — large `.blend`
+files, stems, and datasets never leave the machine.
 
-## Toolkit Implementation Plan
+### Horizon 1 — Finish the foundation (current open items)
 
-### Dependencies
+- Durability and lifecycle first: R02 (save coordination + crash drafts),
+  R06 (concurrent instances, temp-file uniqueness, durability guarantees),
+  N06 (server ownership + shutdown), R07 (storage recovery UI). Nothing in
+  Horizons 2–3 is shippable without these.
+- Real Asset Scanner: D02 job service + D03 filesystem traversal + D06
+  `.blend` awareness, with D05 removing simulated batches only after fixture
+  and large-library validation.
+- Real MIR playback: A02 device/backend + A04 transport/meters, keeping
+  analysis dry while monitoring is shaped (A01 scope).
+- Shared-library extraction — the explicit trigger for the planned split:
+  - `studio-c-core` (C ABI): port `mir_core.v` + the sibling's `mir.zig`
+    behind one header (`rms`, `peak`, `zcr`, bounded `analyze`, error codes).
+    Extract when the KissFFT spectral step lands, so both shells consume one
+    implementation instead of three mirrors.
+  - `studio-js-kit` (ESM): publish `mir.mjs` core + `blender.mjs` + schemas
+    as versioned modules once a second consumer exists (today there are two
+    checkouts with copied files — that is the migration signal, not the start).
+  - Until then: no new copies. Every pure helper lands in the marked
+    transport-free sections so extraction stays mechanical.
 
-- [x] Keep `ttytm.webview` for the V desktop shell.
-- [ ] Use V standard library APIs for real disk scanning.
-- [x] Implement native Linux window lifecycle bindings: minimize, maximize, restore, and close.
-- [ ] Add native window lifecycle implementations for macOS and Windows.
-- [ ] Add platform-specific disk capacity wrappers: `statvfs` for Linux/macOS
-  and `GetDiskFreeSpaceExW` for Windows.
-- [ ] Vendor or package `miniaudio.h` for audio playback and decoding.
-- [ ] Implement equalizer DSP with biquad filters or miniaudio DSP nodes.
-- [ ] Consider GStreamer for advanced audio pipelines and codec support.
-- [ ] Consider PipeWire or PulseAudio only for system-wide audio processing.
-- [x] Use CSS, SVG, or Canvas for frontend visualizations without a chart dependency.
+### Horizon 2 — The connected studio (projects, sessions, literature)
 
-### Scope Decision
+- Project system: per-project `shots.json` (D06) linking Blender scenes,
+  samples, tasks, and log entries; scene-linked audio results (S04) give one
+  shared timeline for "onset → cut, RMS → lighting energy".
+- Session memory (R09): reopen last shot/sample/scroll/workspace, topbar
+  dirty-state pill, crash drafts. Session snapshot export (S05) bundles
+  notes + tasks + MIR results + scene list into one timestamped PDF.
+- Search and command: studio tag search across notes/scenes/samples/papers
+  (S07) plus `Ctrl+K` palette and deep-linkable routes (T07); drag-and-drop
+  audio/`.blend` with a surviving recent-files rail (S01).
+- MIR depth: batch folder analysis to JSON/CSV sidecars (S02), A/B compare
+  with delta readout (S03), loudness guardrails before logging (S09),
+  BPM/key filtering and MFCC near-duplicate detection (A06), spectral
+  features via the shared C core.
+- Knowledge loop: durable drill progress (R05/T01) with Blender-shortcut,
+  VSE, interval/chord, and tempo decks; Research Desk import scope settled
+  (T06) with BibTeX and cite-in-log (E05); cue sheets and VSE edit lists
+  from the shared export model (E06).
+- Storage on demand: SQLite/FTS5 only when folder workflows outgrow JSON,
+  with a measured cache-hit speedup as the entry ticket (S10, D05).
 
-- [ ] Start Audio Equalizer as an application-local audio player.
-- [ ] Defer system-wide equalizer support until the local player is complete.
+### Horizon 3 — Hardened local product
 
-### Backend and Release Quality
+- Release: pinned matrix (B01), green clean-machine CI (B02), installers +
+  icons + metadata (B03), license inventory (B06), finished V02–V06 checks.
+- Platform parity: Linux first, then macOS/Windows window controls (N08),
+  dialogs, volume enumeration (D01), and audio backends (A02) behind platform
+  adapters (L06) — unsupported capabilities stay explicit in the UI (R12).
+- Trust: localhost/server identity (N09), CSP verified in the WebView (R15),
+  actionable diagnostics without logging private bodies (N10).
+- Performance: shared shell controls, theme tokens, virtualized libraries
+  (L09/R19) only after measured bottlenecks; benchmarks stay as evidence.
+- Optional local intelligence: bundled on-device models (onset/beat/key)
+  running through the shared C core — still offline, still no cloud. Cloud
+  sync, if ever proposed, must arrive as explicit export/import (E04), never
+  silent divergence (R08).
 
-- [x] Add a real `get_system_info()` bridge method instead of adapting the
-  greeting method as a placeholder.
-- [x] Add a V-backed counter for `BackendStatus`.
-- [ ] Define a stable RPC contract with method names, argument schemas, return
-  types, and versioning.
-- [x] Add a production error boundary or fallback screen in the Preact shell.
-- [ ] Add a Content Security Policy and restrict unintended navigation or external content.
-- [ ] Decide whether local notes should persist across launches: yes, as
-  versioned JSON documents in the OS data dir (SQLite reserved for later
-  scan caching and search).
+### Target shape (when Horizons 1–2 land)
 
-### Disk Scanner Backend
+```text
+Studio shell (launcher, palette, topbar save state)
+  -> tool workspaces (MIR Lab, Blender Studio, Log, Shots, Drills, Research)
+    -> domain repositories (scenes, samples+features, notes, tasks, papers)
+      -> native domain clients OR browser Dexie repositories
+        -> bridge transport (window.*) OR local adapters
 
-- [ ] Add `disk_scanner.v`.
-- [ ] Enumerate available drives or mount points.
-- [ ] Accept a selected directory from the frontend.
-- [ ] Recursively scan directories with `os.walk_with_context`.
-- [ ] Read file sizes with `os.file_size`.
-- [ ] Aggregate directory sizes.
-- [ ] Skip symlinks or track visited paths to avoid loops.
-- [ ] Continue scanning when permission errors occur.
-- [ ] Add cancellation for large scans.
-- [ ] Sort results by size.
-- [ ] Stream scan progress to the frontend.
-- [ ] Replace mock folder data with real scan results.
+V backend: AppRuntime owns config, server, stores, jobs, shutdown
+  platform adapters: window / dialog / volume / audio
+  shared studio-c-core: time-domain now, spectral next
 
-### Disk Scanner Bridge API
+Persistence: versioned JSON first (notes, quizzes, shots, sidecars),
+  SQLite only for measured scan/search caches, backups as archives (E04)
+```
 
-- [ ] Implement `list_volumes()`.
-- [ ] Implement `start_disk_scan(path)`.
-- [ ] Implement `get_disk_scan_status(job_id)`.
-- [ ] Implement `cancel_disk_scan(job_id)`.
-- [ ] Return job state, scanned file count, scanned bytes, current path, and top directories.
-- [ ] Populate the drive selector from `list_volumes()`.
-- [ ] Enable scanning after validating the selected location.
-- [ ] Display progress and scanned file count.
-- [ ] Add a cancel action.
-- [ ] Display permission and filesystem errors.
+### Non-goals (protect the focus)
 
-### Audio Equalizer Backend
+- System-wide audio processing; the player stays application-local.
+- Cloud accounts, sync, or telemetry of any kind.
+- A generic third-party plugin marketplace; lifecycle metadata (L08) serves
+  first-party enable/disable only.
+- Mobile ports; the shell assumes a desktop WebView with local filesystem.
 
-- [ ] Add `audio_equalizer.v` and `audio_player.v`.
-- [ ] Vendor and bind `miniaudio.h`.
-- [ ] Initialize an audio playback device.
-- [ ] Load supported audio files.
-- [ ] Decode audio into PCM frames.
-- [ ] Create seven frequency bands.
-- [ ] Apply biquad filters to each audio block.
-- [ ] Support play, pause, and stop.
-- [ ] Update band gain in real time.
-- [ ] Add preset loading.
-- [ ] Expose playback position and duration.
-- [ ] Calculate optional peak/RMS meters.
-- [ ] Release audio resources when switching tracks.
-- [ ] Handle unsupported formats and missing audio devices.
+### Milestones and exit criteria
 
-### Audio Equalizer Bridge API
-
-- [ ] Implement `load_audio_file(path)`.
-- [ ] Implement `play_audio()`.
-- [ ] Implement `pause_audio()`.
-- [ ] Implement `stop_audio()`.
-- [ ] Implement `set_equalizer_band(index, gain_db)`.
-- [ ] Implement `apply_equalizer_preset(name)`.
-- [ ] Implement `get_playback_state()`.
-- [ ] Implement `get_audio_levels()`.
-- [ ] Add a frontend file picker.
-- [ ] Enable playback controls after loading a file.
-- [x] Make EQ sliders interactive.
-- [ ] Debounce slider updates before calling V.
-- [x] Show active preset state.
-- [ ] Display playback progress.
-- [ ] Display output-device and decoding errors.
-- [ ] Render live level meters.
-
-### Toolkit Backend Structure
-
-- [ ] Add `backend/disk_scanner.v`.
-- [ ] Add `backend/audio_equalizer.v`.
-- [ ] Add `backend/audio_player.v`.
-- [ ] Add `backend/jobs.v`.
-- [ ] Add `backend/platform_linux.v`.
-- [ ] Add `backend/platform_windows.v`.
-- [ ] Add `backend/platform_macos.v`.
-- [ ] Keep WebView bridge bindings in `bridge.v`.
-
-### Toolkit Development Order
-
-- [ ] Complete Disk Scanner before starting audio playback.
-- [ ] Add real drive enumeration.
-- [ ] Add recursive scanning and progress updates.
-- [ ] Connect Disk Scanner UI to real data.
-- [ ] Add `miniaudio.h`.
-- [ ] Implement audio file loading and playback.
-- [ ] Implement one equalizer band.
-- [ ] Expand to seven bands.
-- [ ] Add presets and meters.
-- [ ] Add cancellation, error handling, and tests.
-
-## Chain Notes
-
-- [x] Add Chain Notes as a launcher and sidebar module.
-- [x] Add a selectable note list and editable note title/body.
-- [x] Add note metadata and word count display.
-- [x] Add client-side PDF export with `jsPDF`.
-- [x] Add export success and error states.
-- [ ] Persist notes through the V backend.
-- [x] Add create and rename note actions.
-- [ ] Add delete and reorder note actions.
-- [x] Add local note search and filtering.
-- [ ] Add import from Markdown or plain text.
-- [ ] Add PDF styling options and chained-note export.
-
-## Codebase Scan Findings
-
-### Backend Correctness and Safety
-
-- [ ] Extract pure `validate_greet_message` and `parse_increment_delta`
-  helpers so bridge validation is unit-testable without a WebView `Event`.
-- [ ] Add bridge tests for greet and increment edge cases: missing argument,
-  oversize message, non-integer delta, and extra arguments.
-- [ ] Make `CounterState` unlock panic-safe with deferred unlock instead of
-  manual lock and unlock pairs.
-- [ ] Remove the `unsafe { nil }` default in `BackendPlugin.register` or add
-  an explicit nil check before invoking plugin registration.
-- [ ] Standardize the timestamp bridge format: `get_time` currently returns a
-  human-readable string while the browser mock returns Unix seconds.
-- [ ] Check `webview.create` for failure instead of assuming window creation
-  always succeeds.
-- [ ] Deduplicate the GTK dispatch blocks in `minimize_window`,
-  `maximize_window`, and `restore_window` behind one window-action helper.
-
-### Local Server and Configuration
-
-- [ ] Reject non-`GET` methods and directory paths explicitly in
-  `StaticHttpHandler` instead of falling through to file reads.
-- [ ] Add server tests for query-string stripping, missing files, directory
-  requests, and HTML, JS, and CSS content types.
-- [ ] Allow environment overrides for production port, dev URL, window title,
-  and window size to avoid hardcoded conflicts in CI and parallel checkouts.
-- [ ] Track the spawned frontend server and shut it down when the WebView
-  exits, including `SIGINT` and `SIGTERM` handling.
-- [ ] Evaluate localhost hardening for the production server, such as an
-  origin check or per-launch token, or document why `127.0.0.1` is enough.
-
-### Build, Scripts, and Toolchain
-
-- [ ] Rename the `build.vsh ui` command to `frontend` while keeping `ui` as a
-  temporary alias.
-- [ ] Add a `build.vsh clean` command for `webview-app`, `dist`, generated
-  assets, and other build outputs.
-- [ ] Run `v fmt -c` and `v vet` in `build.vsh test`, and replace the
-  hardcoded test-file list with `v test .`.
-- [ ] Skip frontend dependency installation when the lockfile is unchanged,
-  instead of running `npm ci` on every build.
-- [ ] Align `run.sh` with `build.vsh` by using `npm ci --no-bin-links` with
-  an `npm install` fallback, plus preflight checks for V, Node, `pkg-config`,
-  GTK, and WebKitGTK.
-- [ ] Document exact toolchain pins: V version, `ttytm.webview` revision,
-  Node version, and native Linux packages.
-
-### Frontend Robustness
-
-- [ ] Update the outdated `backend.js` header comment that still says the
-  counter has no V counterpart.
-- [ ] Validate numeric bridge results in `backend.js` so malformed counter
-  payloads cannot propagate `NaN` into the UI.
-- [ ] Make `BackendStatus` refresh resilient to partial failure instead of
-  aborting system, status, and timestamp updates on the first error.
-- [ ] Add frontend unit tests for bridge unwrapping, backend failures, and
-  strict-mock mode with `__PREACT_MOCK_BRIDGE__ = false`.
-- [ ] Clean stale sourcemaps from `frontend-preact/public/assets` during
-  production builds.
-- [ ] Rewrite `frontend-preact/README.md` for the toolkit shell instead of the
-  old TodoMVC demo, and rename the generic `frontend-exploration-of-preact`
-  package.
-
-### Repository Hygiene
-
-- [ ] Track `frontend-preact/` in git; it is currently untracked while
-  `node_modules`, `dist`, and generated assets remain ignored.
-- [ ] Archive legacy `ui/` under `archive/svelte-view/` or remove it, then
-  delete unused `inline.cjs`.
-- [ ] Update `v.mod`, `README.md`, and `.gitignore` after the legacy frontend
-  decision so Svelte is no longer described as current.
+1. **M1 Durable core**: R02 + R06 + R07 + N06 closed; V02–V04 green; kill the
+   process mid-save in manual testing without losing acknowledged writes.
+2. **M2 Real scanner**: D02 + D03 + D06 done; D05 simulation removed; a
+   10k-file fixture scans, cancels, and restarts cleanly.
+3. **M3 Audible bench**: A02 + A04 done; measured meters replace simulation;
+   device/format failures are tested, not just mocked.
+4. **M4 Measured MIR**: shared C core extracted with spectral features; A05 +
+   A06 done; sidecars (S02) and A/B compare (S03) work on real stems.
+5. **M5 Connected project**: shots.json + S04 + S05 + E06 + T07 done; one
+   command turns a session into a cue sheet a collaborator can read.
+6. **M6 Release**: B01–B03 + N08–N10 done; installed build on a clean machine
+   outside the checkout with production debug disabled.

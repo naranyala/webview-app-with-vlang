@@ -2,26 +2,40 @@ import Dexie from 'dexie';
 import {
   parseAcademicPaper,
   parseAcademicPaperRecords,
+  parseAssetRecords,
+  parseAudioFeatureRecords,
   parseChainNoteRecords,
   parseTodoRecords
 } from './schemas.mjs';
 
 export const STORAGE_DB_NAME = 'webview-app';
-export const STORAGE_DB_VERSION = 1;
+export const STORAGE_DB_VERSION = 2;
 export const STORAGE_BACKUP_KEY = 'webview-app.local-storage-backup.v1';
 
 const TODO_STORAGE_KEY = 'preact-todomvc.todos';
 const CHAIN_NOTES_STORAGE_KEY = 'webview-app.chain-notes';
 const ACADEMIC_PAPERS_STORAGE_KEY = 'webview-app.academic-papers';
+const ASSETS_STORAGE_KEY = 'webview-app.assets';
+const AUDIO_FEATURES_STORAGE_KEY = 'webview-app.audio-features';
 const MIGRATION_KEY = 'migration:local-storage:v1';
 
 export const LEGACY_STORAGE_KEYS = {
   todos: TODO_STORAGE_KEY,
   chainNotes: CHAIN_NOTES_STORAGE_KEY,
-  academicPapers: ACADEMIC_PAPERS_STORAGE_KEY
+  academicPapers: ACADEMIC_PAPERS_STORAGE_KEY,
+  assets: ASSETS_STORAGE_KEY,
+  audioFeatures: AUDIO_FEATURES_STORAGE_KEY
 };
 
 export const frontendDb = new Dexie(STORAGE_DB_NAME);
+frontendDb.version(1).stores({
+  metadata: 'key',
+  todos: 'id,dueDate,completed',
+  chainNotes: 'id,tag,updated',
+  papers: 'id,year',
+  paperReferences: 'id,paperId,year',
+  paperAssets: 'id,paperId,type'
+});
 frontendDb
   .version(STORAGE_DB_VERSION)
   .stores({
@@ -30,7 +44,9 @@ frontendDb
     chainNotes: 'id,tag,updated',
     papers: 'id,year',
     paperReferences: 'id,paperId,year',
-    paperAssets: 'id,paperId,type'
+    paperAssets: 'id,paperId,type',
+    assets: 'id,kind,path',
+    audioFeatures: 'path,tempo,key'
   })
   .upgrade((transaction) =>
     transaction.table('metadata').put({
@@ -45,7 +61,9 @@ const allTables = [
   frontendDb.chainNotes,
   frontendDb.papers,
   frontendDb.paperReferences,
-  frontendDb.paperAssets
+  frontendDb.paperAssets,
+  frontendDb.assets,
+  frontendDb.audioFeatures
 ];
 
 let initialization;
@@ -387,5 +405,86 @@ export async function saveAcademicPapersToStorage(papers) {
     return true;
   } catch {
     return writeLegacyRecords(ACADEMIC_PAPERS_STORAGE_KEY, normalized);
+  }
+}
+
+export async function loadStudioAssetsFromStorage() {
+  if (!indexedDbAvailable()) {
+    return readLegacyRecords(ASSETS_STORAGE_KEY, parseAssetRecords);
+  }
+  try {
+    await initializeStorage();
+    const records = parseAssetRecords(await frontendDb.assets.toArray());
+    return records.length || (await collectionInitialized(ASSETS_STORAGE_KEY))
+      ? records
+      : null;
+  } catch {
+    return readLegacyRecords(ASSETS_STORAGE_KEY, parseAssetRecords);
+  }
+}
+
+export async function saveStudioAssetsToStorage(assets) {
+  const records = parseAssetRecords(assets);
+  if (!indexedDbAvailable())
+    return writeLegacyRecords(ASSETS_STORAGE_KEY, records);
+  try {
+    await initializeStorage();
+    await frontendDb.transaction(
+      'rw',
+      [frontendDb.assets, frontendDb.metadata],
+      async () => {
+        await frontendDb.assets.clear();
+        await frontendDb.assets.bulkPut(records);
+        await markCollectionInitialized(ASSETS_STORAGE_KEY);
+      }
+    );
+    return true;
+  } catch {
+    return writeLegacyRecords(ASSETS_STORAGE_KEY, records);
+  }
+}
+
+export async function loadAudioFeaturesFromStorage() {
+  if (!indexedDbAvailable()) {
+    return readLegacyRecords(
+      AUDIO_FEATURES_STORAGE_KEY,
+      parseAudioFeatureRecords
+    );
+  }
+  try {
+    await initializeStorage();
+    const records = parseAudioFeatureRecords(
+      await frontendDb.audioFeatures.toArray()
+    );
+    return records.length ||
+      (await collectionInitialized(AUDIO_FEATURES_STORAGE_KEY))
+      ? records
+      : null;
+  } catch {
+    return readLegacyRecords(
+      AUDIO_FEATURES_STORAGE_KEY,
+      parseAudioFeatureRecords
+    );
+  }
+}
+
+export async function saveAudioFeaturesToStorage(features) {
+  const records = parseAudioFeatureRecords(features);
+  if (!indexedDbAvailable())
+    return writeLegacyRecords(AUDIO_FEATURES_STORAGE_KEY, records);
+  try {
+    await initializeStorage();
+    await frontendDb.transaction(
+      'rw',
+      [frontendDb.audioFeatures, frontendDb.metadata],
+      async () => {
+        await frontendDb.audioFeatures.clear();
+        await frontendDb.audioFeatures.bulkPut(records);
+        await markCollectionInitialized(AUDIO_FEATURES_STORAGE_KEY);
+      }
+    );
+    return true;
+  } catch {
+    return writeLegacyRecords(AUDIO_FEATURES_STORAGE_KEY, records);
   }
 }
